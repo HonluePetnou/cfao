@@ -7,6 +7,9 @@ COPY apps/api/package.json ./apps/api/package.json
 
 RUN npm ci
 
+# packages/config contient tsconfig.base.json dont apps/api/tsconfig.json dépend
+COPY packages/ ./packages/
+
 # Copy API source and Prisma schema
 COPY apps/api ./apps/api
 

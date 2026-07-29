@@ -7,6 +7,9 @@ COPY apps/web/package.json ./apps/web/package.json
 
 RUN npm ci
 
+# packages/config contient tsconfig.base.json dont apps/web/tsconfig.json dépend
+COPY packages/ ./packages/
+
 # Copy web source code
 COPY apps/web ./apps/web
 
