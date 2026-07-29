@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: gmao_postgres
+    environment:
+      POSTGRES_DB: gmao
+      POSTGRES_USER: gmao
+      POSTGRES_PASSWORD: gmao_secure_password_2026
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gmao -d gmao"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: gmao_redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: gmao_api
+    environment:
+      DATABASE_URL: "postgresql://gmao:gmao_secure_password_2026@postgres:5432/gmao?schema=public"
+      JWT_SECRET: "gmao-production-secret-key-2026"
+      REDIS_URL: "redis://redis:6379"
+      PORT: 4000
+      NODE_ENV: "production"
+      FRONTEND_URL: "http://localhost"
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: always
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: gmao_web
+    environment:
+      NODE_ENV: "production"
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: "http://localhost/api"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    restart: always
+
+  nginx:
+    image: nginx:alpine
+    container_name: gmao_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - web
+      - api
+    restart: always
+
+volumes:
+  pgdata:

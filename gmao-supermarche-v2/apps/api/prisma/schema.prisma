@@ -1,0 +1,219 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  MAINTENANCIER
+  USER
+}
+
+enum TicketStatus {
+  NOUVEAU
+  ASSIGNE
+  EN_COURS
+  TERMINE
+  A_REPRENDRE
+  FERME
+}
+
+enum Priority {
+  BASSE
+  MOYENNE
+  HAUTE
+  CRITIQUE
+}
+
+model Supermarket {
+  id          String        @id @default(cuid())
+  nom         String
+  code        String        @unique
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  localisations Localisation[]
+  users       User[]        @relation("UserSupermarket")
+  equipments  Equipment[]
+  rondeConfig RondeConfiguration?
+  rondeJournaux RondeJournaliere[]
+}
+
+model Localisation {
+  id            String      @id @default(cuid())
+  nom           String
+  supermarketId String
+  supermarket   Supermarket @relation(fields: [supermarketId], references: [id])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  users         User[]      @relation("UserLocalisation")
+  equipments    Equipment[]
+}
+
+model User {
+  id              String            @id @default(cuid())
+  nom             String
+  email           String            @unique
+  password        String
+  role            Role              @default(USER)
+  supermarketId   String?
+  supermarket     Supermarket?      @relation("UserSupermarket", fields: [supermarketId], references: [id])
+  localisationId  String?
+  localisation    Localisation?     @relation("UserLocalisation", fields: [localisationId], references: [id])
+  phone           String?
+  active          Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  assignedTickets Ticket[]          @relation("AssignedMaintenancier")
+  createdTickets  Ticket[]          @relation("CreatedByUser")
+  closedTickets   Ticket[]          @relation("ClosedByAdmin")
+  assignedPlans   PreventivePlan[]  @relation("AssignedMaintenancierPlan")
+  rapportsJournaliers RapportJournalier[]
+  rondeJournaux     RondeJournaliere[]
+}
+
+model Equipment {
+  id               String            @id @default(cuid())
+  nom              String
+  criticite        String?           @default("moyenne")
+  corpsEtat        String?
+  supermarketId    String
+  supermarket      Supermarket       @relation(fields: [supermarketId], references: [id])
+  localisationId   String?
+  localisation     Localisation?     @relation(fields: [localisationId], references: [id])
+  description      String?
+  active           Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  tickets          Ticket[]
+  preventivePlans  PreventivePlan[]
+}
+
+model Ticket {
+  id                       String        @id @default(cuid())
+  titre                    String
+  description              String?
+  priority                 Priority      @default(MOYENNE)
+  status                   TicketStatus  @default(NOUVEAU)
+  equipmentId              String
+  equipment                Equipment     @relation(fields: [equipmentId], references: [id])
+  createdById              String?
+  createdBy                User?         @relation("CreatedByUser", fields: [createdById], references: [id])
+  assignedMaintenancierId  String?
+  assignedMaintenancier    User?         @relation("AssignedMaintenancier", fields: [assignedMaintenancierId], references: [id])
+  closedById               String?
+  closedBy                 User?         @relation("ClosedByAdmin", fields: [closedById], references: [id])
+  photos                   String?
+  motifReprise             String?
+  // Champs GMAO
+  localisation             String?
+  corpsEtat                String?
+  typeTravaux              String?
+  cout                     Float?
+  tempsArret               Float?
+  financement              String?
+  paiement                 String?
+  dateDebutInterv          DateTime?
+  dateFinInterv            DateTime?
+  commentaireMaintenancier String?
+  imputation               String?
+  // Dates workflow
+  dateAssigned             DateTime?
+  dateEnCours              DateTime?
+  dateTermine              DateTime?
+  dateFerme                DateTime?
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
+}
+
+enum PlanIntervalUnit {
+  DAYS
+  WEEKS
+  MONTHS
+  YEARS
+}
+
+model PreventivePlan {
+  id                       String           @id @default(cuid())
+  titre                    String
+  equipmentId              String
+  equipment                Equipment        @relation(fields: [equipmentId], references: [id])
+  intervalValue            Int              @default(30)
+  intervalUnit             PlanIntervalUnit @default(DAYS)
+  assignedMaintenancierId  String?
+  assignedMaintenancier    User?            @relation("AssignedMaintenancierPlan", fields: [assignedMaintenancierId], references: [id])
+  prestataire              String?
+  checklist                String?
+  active                   Boolean          @default(true)
+  nextDate                 DateTime         @default(now())
+  lastDate                 DateTime?
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
+  tasks                    PreventiveTask[]
+}
+
+enum PreventiveTaskStatus {
+  PLANIFIE
+  EN_RETARD
+  EFFECTUE
+  ANNULE
+}
+
+model PreventiveTask {
+  id              String               @id @default(cuid())
+  planId          String
+  plan            PreventivePlan       @relation(fields: [planId], references: [id], onDelete: Cascade)
+  dueDate         DateTime
+  status          PreventiveTaskStatus @default(PLANIFIE)
+  doneAt          DateTime?
+  note            String?
+  imputation      String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+}
+
+model RapportJournalier {
+  id              String   @id @default(cuid())
+  date            DateTime
+  maintenancierId String
+  maintenancier   User     @relation(fields: [maintenancierId], references: [id], onDelete: Cascade)
+  activites       String
+  observations    String?
+  managerMaintenance String?
+  dateVisaAgent   DateTime?
+  signatureTechnicien Boolean @default(false)
+  dateSignatureTechnicien DateTime?
+  signatureResponsable Boolean @default(false)
+  dateSignatureResponsable DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model RondeConfiguration {
+  id            String      @id @default(cuid())
+  supermarketId String      @unique
+  supermarket   Supermarket @relation(fields: [supermarketId], references: [id], onDelete: Cascade)
+  zones         String      // JSON: [{ zone: string, equipements: string[] }]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model RondeJournaliere {
+  id                   String   @id @default(cuid())
+  date                 DateTime
+  supermarketId        String
+  supermarket          Supermarket @relation(fields: [supermarketId], references: [id], onDelete: Cascade)
+  maintenancierId      String?
+  maintenancier        User?    @relation(fields: [maintenancierId], references: [id], onDelete: SetNull)
+  checks               String   // JSON: [{ zone, equipements: [{ nom, "09h": "OK"|"NOK"|"", "15h": "OK"|"NOK"|"", observation }] }]
+  observationsGenerales String?
+  signatureTechnicien  String?
+  signaturePermanent   String?
+  signatureDM          String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}

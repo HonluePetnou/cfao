@@ -1,0 +1,114 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base ─────────────────────────────────────────── */
+body {
+  background: #F5F6FA;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #1E293B;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #F1F5F9; }
+::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+/* ─── Sidebar navigation ────────────────────────────── */
+@layer components {
+  .sidebar-link {
+    @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-300
+           hover:bg-white/10 hover:text-white transition-all duration-150 cursor-pointer;
+  }
+  .sidebar-link.active {
+    @apply bg-orange/20 text-orange;
+  }
+  .sidebar-section {
+    @apply text-[10px] font-bold uppercase tracking-widest text-slate-500 px-3 mt-6 mb-1.5;
+  }
+
+  /* ─── Cards ─────────────────────────────────────────── */
+  .card {
+    @apply bg-white rounded-2xl shadow-card p-5;
+  }
+  .card-sm {
+    @apply bg-white rounded-xl shadow-card p-4;
+  }
+
+  /* ─── Priority badges ────────────────────────────────── */
+  .badge { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold; }
+  .badge-critique { @apply badge bg-red-100 text-red-700; }
+  .badge-haute    { @apply badge bg-amber-100 text-amber-700; }
+  .badge-moyenne  { @apply badge bg-blue-100 text-blue-700; }
+  .badge-basse    { @apply badge bg-emerald-100 text-emerald-700; }
+
+  /* ─── Status badges ──────────────────────────────────── */
+  .status-badge { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold; }
+  .status-nouveau     { @apply status-badge bg-slate-100 text-slate-600; }
+  .status-assigne     { @apply status-badge bg-blue-100 text-blue-700; }
+  .status-en_cours    { @apply status-badge bg-orange-100 text-orange-700; }
+  .status-termine     { @apply status-badge bg-emerald-100 text-emerald-700; }
+  .status-a_reprendre { @apply status-badge bg-yellow-100 text-yellow-700; }
+  .status-ferme       { @apply status-badge bg-slate-100 text-slate-500; }
+
+  /* ─── Priority left border colors ───────────────────── */
+  .border-critique { @apply border-l-red-500; }
+  .border-haute    { @apply border-l-amber-500; }
+  .border-moyenne  { @apply border-l-blue-500; }
+  .border-basse    { @apply border-l-emerald-500; }
+
+  /* ─── Buttons ────────────────────────────────────────── */
+  .btn-primary {
+    @apply flex items-center justify-center gap-2 rounded-xl bg-orange px-4 py-2.5 text-sm
+           font-semibold text-white hover:bg-orange-600 transition-colors
+           disabled:opacity-50 disabled:cursor-not-allowed shadow-sm;
+  }
+  .btn-secondary {
+    @apply flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5
+           text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors;
+  }
+  .btn-danger {
+    @apply flex items-center justify-center gap-2 rounded-xl bg-red-500 px-4 py-2.5 text-sm
+           font-semibold text-white hover:bg-red-600 transition-colors disabled:opacity-50;
+  }
+
+  /* ─── Input ──────────────────────────────────────────── */
+  .input {
+    @apply w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 bg-white
+           focus:outline-none focus:border-orange focus:ring-2 focus:ring-orange/20 transition-all;
+  }
+  .select {
+    @apply w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 bg-white
+           focus:outline-none focus:border-orange focus:ring-2 focus:ring-orange/20 transition-all
+           appearance-none;
+  }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@keyframes popIn {
+  from { transform: scale(0.4); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+

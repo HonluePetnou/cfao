@@ -1,0 +1,339 @@
+"use client";
+import Shell from "@/components/Shell";
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { api } from "@/lib/api";
+import { useConfirm } from "@/components/Confirm";
+import { useToast } from "@/components/Toast";
+import { Settings, PlusCircle, Loader2, Trash2, Check, X } from "lucide-react";
+
+export default function EquipementsPage() {
+  const router = useRouter();
+  const confirm = useConfirm();
+  const { success, error: toastError } = useToast();
+  const [data, setData] = useState<any[]>([]);
+  const [localisations, setLocalisations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [filterLocalisation, setFilterLocalisation] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [form, setForm] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const getCurrentSupermarketId = () =>
+    typeof window !== "undefined"
+      ? sessionStorage.getItem("gmao_current_supermarket")
+      : null;
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const sid = getCurrentSupermarketId();
+      const [eq, loc] = await Promise.all([
+        sid ? api.getEquipments({ supermarketId: sid }) : api.getEquipments(),
+        sid ? api.getLocalisations(sid) : api.getLocalisations(),
+      ]);
+      setData(eq);
+      setLocalisations(loc);
+    } catch {
+      router.push("/login");
+    } finally {
+      setLoading(false);
+    }
+  }, [router]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const filteredData = filterLocalisation
+    ? data.filter((d) => d.localisationId === filterLocalisation)
+    : data;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSubmitting(true);
+    try {
+      const payload = { ...form, supermarketId: getCurrentSupermarketId() };
+      if (editId) {
+        await api.updateEquipment(editId, form);
+      } else {
+        await api.createEquipment(payload);
+      }
+      setForm({});
+      setShowForm(false);
+      setEditId(null);
+      await load();
+    } catch {
+      setError("Erreur lors de l'enregistrement.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    const ok = await confirm({
+      title: "Supprimer l'équipement",
+      message:
+        "Voulez-vous vraiment supprimer cet équipement ? Toutes les interventions passées et les plans préventifs liés y resteront rattachés.",
+      confirmText: "Supprimer",
+      type: "danger",
+    });
+    if (!ok) return;
+    try {
+      await api.deleteEquipment(id);
+      success("Équipement supprimé", "L'équipement a été supprimé avec succès");
+      await load();
+    } catch {
+      toastError("Erreur", "Impossible de supprimer cet équipement.");
+    }
+  };
+
+  const startEdit = (item: any) => {
+    setForm({
+      nom: item.nom,
+      localisationId: item.localisationId || "",
+      criticite: item.criticite || "",
+    });
+    setEditId(item.id);
+    setShowForm(true);
+  };
+
+  const criticiteOptions = [
+    { value: "basse", label: "Basse" },
+    { value: "moyenne", label: "Moyenne" },
+    { value: "haute", label: "Haute" },
+    { value: "critique", label: "Critique" },
+  ];
+
+  return (
+    <Shell
+      title="Équipements"
+      subtitle="Gestion des équipements par supermarché"
+    >
+      <div className="card">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+              <Settings size={18} className="text-slate-500" />
+              Équipements
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {filteredData.length} / {data.length} entrée(s)
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <select
+              value={filterLocalisation}
+              onChange={(e) => setFilterLocalisation(e.target.value)}
+              className="text-xs border border-slate-200 rounded-xl pl-3 pr-7 py-1.5 appearance-none bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange/30"
+            >
+              <option value="">Toutes les localisations</option>
+              {localisations.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.nom}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => {
+                setShowForm(!showForm);
+                setEditId(null);
+                setForm({});
+              }}
+              className="btn-primary"
+            >
+              {showForm ? <X size={15} /> : <PlusCircle size={15} />}
+              {showForm ? "Fermer" : "Ajouter"}
+            </button>
+          </div>
+        </div>
+
+        {showForm && (
+          <div className="bg-slate-50 rounded-2xl p-5 mb-5 border border-slate-200 animate-fade-in">
+            <h3 className="text-sm font-semibold text-slate-700 mb-4">
+              {editId ? "Modifier" : "Nouvel"} équipement
+            </h3>
+            {error && (
+              <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl p-3 mb-4">
+                {error}
+              </div>
+            )}
+            <form onSubmit={handleSubmit}>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Nom
+                  </label>
+                  <input
+                    value={form.nom || ""}
+                    onChange={(e) => setForm({ ...form, nom: e.target.value })}
+                    required
+                    placeholder="Ex: Chambre froide"
+                    className="input"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Localisation
+                  </label>
+                  <select
+                    value={form.localisationId || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, localisationId: e.target.value })
+                    }
+                    required
+                    className="select"
+                  >
+                    <option value="">Sélectionner...</option>
+                    {localisations.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.nom}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Criticité
+                  </label>
+                  <select
+                    value={form.criticite || ""}
+                    onChange={(e) =>
+                      setForm({ ...form, criticite: e.target.value })
+                    }
+                    className="select"
+                  >
+                    <option value="">Sélectionner...</option>
+                    {criticiteOptions.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="btn-primary"
+                >
+                  {submitting ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    <Check size={15} />
+                  )}
+                  {submitting
+                    ? "Enregistrement..."
+                    : editId
+                      ? "Modifier"
+                      : "Créer"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForm(false);
+                    setEditId(null);
+                    setForm({});
+                  }}
+                  className="btn-secondary"
+                >
+                  Annuler
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 size={24} className="animate-spin text-orange" />
+          </div>
+        ) : filteredData.length === 0 ? (
+          <div className="text-center py-14">
+            <Settings size={44} className="mx-auto text-slate-200 mb-3" />
+            <p className="text-slate-500 font-medium">Aucun équipement</p>
+            <p className="text-slate-400 text-sm">
+              Aucun résultat pour cette localisation.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto -mx-1">
+            <table className="w-full text-sm min-w-[600px]">
+              <thead>
+                <tr className="border-b border-slate-100">
+                  <th className="text-left text-[10px] font-bold uppercase tracking-wider text-slate-400 pb-3 pr-4 first:pl-1">
+                    Nom
+                  </th>
+                  <th className="text-left text-[10px] font-bold uppercase tracking-wider text-slate-400 pb-3 pr-4">
+                    Localisation
+                  </th>
+                  <th className="text-left text-[10px] font-bold uppercase tracking-wider text-slate-400 pb-3 pr-4">
+                    Criticité
+                  </th>
+                  <th className="w-20" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filteredData.map((row) => (
+                  <tr
+                    key={row.id}
+                    className="hover:bg-slate-50 transition-colors group"
+                  >
+                    <td className="py-3 pr-4 first:pl-1 text-slate-700 font-medium">
+                      {row.nom}
+                    </td>
+                    <td className="py-3 pr-4 text-slate-500">
+                      {row.localisation?.nom || "—"}
+                    </td>
+                    <td className="py-3 pr-4">
+                      {row.criticite ? (
+                        <span className={`badge badge-${row.criticite}`}>
+                          {row.criticite}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="py-3">
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => startEdit(row)}
+                          className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-colors"
+                          title="Modifier"
+                        >
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                            <path d="m15 5 4 4" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(row.id)}
+                          className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
+                          title="Supprimer"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </Shell>
+  );
+}
