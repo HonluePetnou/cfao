@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { PrismaService } from "./prisma.service";
+import { HealthController } from "./health/health.controller";
 import { AuthModule } from "./auth/auth.module";
 import { UsersModule } from "./users/users.module";
 import { SupermarketsModule } from "./supermarkets/supermarkets.module";
@@ -34,6 +35,7 @@ import { RondeModule } from "./ronde/ronde.module";
     RapportJournalierModule,
     RondeModule,
   ],
+  controllers: [HealthController],
   providers: [PrismaService],
   exports: [PrismaService],
 })

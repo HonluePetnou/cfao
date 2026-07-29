@@ -1,20 +1,16 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
     container_name: gmao_postgres
     environment:
-      POSTGRES_DB: gmao
-      POSTGRES_USER: gmao
-      POSTGRES_PASSWORD: gmao_secure_password_2026
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U gmao -d gmao"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,9 +18,12 @@ services:
   redis:
     image: redis:7-alpine
     container_name: gmao_redis
-    ports:
-      - "6379:6379"
     restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   api:
     build:
@@ -32,20 +31,26 @@ services:
       dockerfile: apps/api/Dockerfile
     container_name: gmao_api
     environment:
-      DATABASE_URL: "postgresql://gmao:gmao_secure_password_2026@postgres:5432/gmao?schema=public"
-      JWT_SECRET: "gmao-production-secret-key-2026"
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public"
+      JWT_SECRET: ${JWT_SECRET}
       REDIS_URL: "redis://redis:6379"
       PORT: 4000
       NODE_ENV: "production"
-      FRONTEND_URL: "http://localhost"
+      FRONTEND_URL: ${FRONTEND_URL}
     ports:
-      - "4000:4000"
+      - "127.0.0.1:4000:4000"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   web:
     build:
@@ -55,11 +60,11 @@ services:
     environment:
       NODE_ENV: "production"
       PORT: 3000
-      NEXT_PUBLIC_API_URL: "http://localhost/api"
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     restart: always
 
   nginx:
