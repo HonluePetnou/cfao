@@ -3,7 +3,7 @@ import * as xlsx from "xlsx";
 import * as path from "path";
 
 const prisma = new PrismaClient();
-const filePath = path.resolve(__dirname, "../../../Suivi financier Maintenance _ juin 2026.xlsx");
+const filePath = path.resolve(__dirname, "../../../data/Suivi financier Maintenance _ juin 2026.xlsx");
 
 // Only these sites were SKIPPED — we create them and import their tickets
 const MISSING_SITES_MAP: Record<string, string> = {

@@ -1,0 +1,40 @@
+# Dependencies (reinstalled inside the image via npm ci)
+node_modules
+**/node_modules
+
+# Build outputs (rebuilt inside the image)
+dist
+**/dist
+.next
+**/.next
+out
+**/out
+.turbo
+**/.turbo
+tsconfig.tsbuildinfo
+**/tsconfig.tsbuildinfo
+
+# VCS / editor
+.git
+.gitignore
+.vscode
+.idea
+
+# Secrets — never send these into the build context
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+install.log
+
+# Docs not needed at build time
+README.md
+GUIDE_LANCEMENT.md
+
+# Data dumps: never bake production data into an image.
+# Restored directly into Postgres on the server (see DEPLOIEMENT.md) —
+# the API image only needs the two .xlsx files for the one-off import scripts.
+data/*.sql

@@ -4,7 +4,7 @@ import * as path from "path";
 
 const prisma = new PrismaClient();
 
-const filePath = path.resolve(__dirname, "../../../Suivi financier Maintenance _ juin 2026.xlsx");
+const filePath = path.resolve(__dirname, "../../../data/Suivi financier Maintenance _ juin 2026.xlsx");
 
 // Helper to map SITE string to actual Supermarket Name
 function getSupermarketName(siteName: string): string {
