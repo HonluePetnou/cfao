@@ -76,6 +76,16 @@ Internet
 
 C'est déjà une configuration réseau saine par défaut ; rien à changer ici.
 
+> **Pare-feu confirmé sur le serveur cible** : seuls 80, 8080 et 4343 sont
+> ouverts en entrée. Ça tombe bien, `nginx` publie déjà sur le 80 — aucun
+> changement de port nécessaire dans `docker-compose.yml`. 8080 et 4343 ne
+> sont utilisés par aucun service de cette stack ; ce sont des règles de
+> pare-feu existantes, indépendantes de ce déploiement. Le jour où le 443
+> sera nécessaire (HTTPS, section 9), il faudra soit faire ouvrir le 443 par
+> l'administrateur du pare-feu, soit republier `nginx` sur le 4343 déjà
+> ouvert (`"4343:443"` dans le compose) et ajuster le DNS/reverse proxy en
+> amont en conséquence.
+
 ---
 
 ## 2. Prérequis sur le serveur
@@ -351,4 +361,9 @@ l'ajout se fait sans réécrire l'architecture :
 - [ ] `curl http://127.0.0.1:4000/api/health` → `{"status":"ok"}`
 - [ ] Dump restauré dans Postgres, connexion testée sur `http://<ip>/login`
 - [ ] Cron de sauvegarde `pg_dump` en place, copié hors du serveur
-- [ ] Pare-feu : seuls les ports 22 (SSH) et 80 (HTTP) ouverts publiquement
+- [ ] Pare-feu du serveur confirmé : seuls 80, 8080 et 4343 sont ouverts en
+      entrée (+ le port SSH déjà utilisé pour s'y connecter). `nginx` publie
+      déjà sur le 80, qui est ouvert — **rien à changer** dans
+      `docker-compose.yml`. 8080/4343 ne sont pas utilisés par cette appli ;
+      ils resteront disponibles si un besoin futur apparaît (ex. exposer un
+      service admin séparé), voir note en section 1.
