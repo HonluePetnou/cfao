@@ -3,7 +3,7 @@ import * as xlsx from "xlsx";
 import * as path from "path";
 
 const prisma = new PrismaClient();
-const filePath = path.resolve(__dirname, "../../../CHECK-LIST -SUNSHINE 001.xlsx");
+const filePath = path.resolve(__dirname, "../../../data/CHECK-LIST -SUNSHINE 001.xlsx");
 
 // Extract machine name from row 7 (e.g. "Machine : FACONNEUSE " → "FACONNEUSE")
 function extractMachineName(rows: any[][]): string {

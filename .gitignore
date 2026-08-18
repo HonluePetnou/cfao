@@ -46,6 +46,10 @@ Thumbs.db
 apps/api/prisma/*.db
 apps/api/prisma/*.db-journal
 
+# Production data dumps — never commit real business data.
+# Transfer to the server out-of-band (scp) and restore directly into Postgres.
+gmao-supermarche-v2/data/*.sql
+
 # Temporary files
 *.tmp
 *.bak
