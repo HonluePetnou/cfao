@@ -136,6 +136,34 @@ transfère-le à part, chiffré/en direct (jamais par un canal public) :
 scp "gmao-supermarche-v2/data/gmao-seed.sql" <user>@<serveur>:~/cfao/gmao-supermarche-v2/data/
 ```
 
+**Option C — via LocalSend (ou tout transfert direct type "copie de
+fichiers") :**
+
+Contrairement à `git`/`rsync`, l'outil envoie tel quel ce que tu sélectionnes
+— il ne connaît ni `.gitignore` ni `.dockerignore` et n'exclut donc rien
+automatiquement. À faire avant d'envoyer :
+
+1. Sur ta machine, fais une copie du dossier `gmao-supermarche-v2/` et
+   supprime-en, dans cette copie, tout ce qui n'a pas besoin de voyager
+   (inutile, lourd, ou sensible) :
+   - `node_modules/` (partout — racine, `apps/api/`, `apps/web/`) :
+     réinstallé par `npm ci` pendant `docker compose build`, des centaines
+     de Mo pour rien.
+   - `.git/`, `.next/`, `.turbo/`, `apps/api/dist/`
+   - `.env` (les secrets de dev n'ont rien à faire sur le serveur — tu en
+     recrées un propre à l'étape 4)
+   - `data/gmao-seed.sql` — envoie-le à part, en gardant conscience que
+     c'est une vraie donnée métier (LocalSend étant un transfert direct de
+     poste à poste sur le réseau local, c'est un canal raisonnable pour ce
+     fichier, contrairement à un envoi par un service cloud tiers).
+2. Envoie ce dossier nettoyé (zippe-le d'abord si l'outil transfère mieux un
+   seul fichier qu'une arborescence).
+3. Sur le serveur, dézippe/place le résultat à l'endroit voulu, par exemple
+   `~/cfao/gmao-supermarche-v2/`, puis `cd` dedans.
+
+Le reste du plan (à partir de la section 4) est identique, quelle que soit
+l'option choisie.
+
 ---
 
 ## 4. Configurer les secrets de production
