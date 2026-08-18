@@ -171,27 +171,22 @@ l'option choisie.
 Sur le serveur, dans `gmao-supermarche-v2/` :
 
 ```bash
-cp .env.example .env
+./scripts/setup-env.sh http://<ip-publique-ou-domaine-du-serveur>
 ```
 
-Édite `.env` et remplace les `CHANGE_ME` par de vraies valeurs **fortes et
-uniques** (ne réutilise pas celles de dev) :
+Ça génère `.env` avec un `JWT_SECRET` et un `POSTGRES_PASSWORD` aléatoires
+forts (`openssl rand`), et renseigne `FRONTEND_URL` (utilisée pour la
+validation CORS côté API) avec l'URL donnée en argument — `http://localhost:3000`
+par défaut si tu ne donnes rien. **Idempotent** : si `.env` existe déjà, le
+script ne fait rien (il ne régénère/écrase jamais des secrets en place) —
+c'est voulu, `git clone` + ce script suffisent, rien d'autre à configurer à
+la main.
 
-```bash
-# Génère un secret JWT
-openssl rand -base64 48
-# Génère un mot de passe Postgres
-openssl rand -base64 24
-```
-
-Renseigne aussi `FRONTEND_URL` avec l'adresse publique réelle du serveur
-(utilisée pour la validation CORS côté API) :
-
-```
-FRONTEND_URL=http://<ip-publique-ou-domaine-du-serveur>
-```
-
-`.env` est déjà dans `.gitignore` — vérifie qu'il n'est jamais committé.
+`.env` reste **volontairement hors de git** (`.gitignore`) — c'est un dépôt
+public, y committer ce fichier exposerait les secrets de production à
+n'importe qui sur internet. Si tu préfères le configurer toi-même à la
+main plutôt que par le script, la logique est visible dans
+[scripts/setup-env.sh](scripts/setup-env.sh).
 
 ---
 
@@ -383,7 +378,7 @@ l'ajout se fait sans réécrire l'architecture :
 
 - [ ] Code transféré sur le serveur (git ou rsync)
 - [ ] `data/gmao-seed.sql` transféré séparément (scp, hors git)
-- [ ] `.env` créé avec des secrets forts et uniques + `FRONTEND_URL` correct
+- [ ] `.env` généré via `./scripts/setup-env.sh <url>` (secrets forts + `FRONTEND_URL` correct)
 - [ ] `docker compose build && docker compose up -d`
 - [ ] `docker compose ps` → tous les services `healthy`/`running`
 - [ ] `curl http://127.0.0.1:4000/api/health` → `{"status":"ok"}`
