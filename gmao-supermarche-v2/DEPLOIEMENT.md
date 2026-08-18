@@ -190,19 +190,55 @@ curl -I http://localhost/                # 200 via nginx
 
 ## 6. Charger les vraies données de production
 
-Le schéma est créé mais la base est vide. Restaure le dump réel
-(`data/gmao-seed.sql`, déjà transféré à l'étape 3) directement dans le
-conteneur Postgres :
+**Ne lance pas** `prisma/seed.ts` ni les scripts `import-*.ts` en
+production — ce sont les scripts qui ont *servi à produire* ce dump à
+l'origine (ils lisent les `.xlsx`) ; les relancer écraserait
+(`seed.ts` fait un `deleteMany` sur toutes les tables) ou dupliquerait les
+vraies données. Le seul chemin à utiliser ici est la restauration directe
+du dump SQL.
+
+### 6.1 Précondition : le schéma doit déjà exister
+
+Le conteneur `api` crée le schéma automatiquement au démarrage
+(`prisma db push`, voir `CMD` du Dockerfile) — la base est vide mais les
+tables existent dès que `api` est `healthy` :
+
+```bash
+docker compose ps api   # State doit afficher "healthy", pas juste "running"
+```
+
+Si `api` n'est pas encore healthy, attends ou regarde
+`docker compose logs api` avant de continuer — restaurer contre un schéma
+pas encore créé échouera avec `relation "Supermarket" does not exist`.
+
+### 6.2 Vérifier qu'on ne restaure pas par-dessus des données existantes
+
+Le dump ne fait que des `INSERT` (pas de `ON CONFLICT`) : le relancer une
+deuxième fois échouera sur une clé dupliquée dès la première ligne en
+conflit — sans forcément tout annoncer proprement selon où ça casse. Vérifie
+d'abord que la base est bien vide avant de restaurer (ne le fais qu'une
+seule fois, au tout premier déploiement) :
 
 ```bash
 set -a; source .env; set +a
 docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-  < data/gmao-seed.sql
+  -c 'SELECT count(*) FROM "Supermarket";'
+# → doit renvoyer 0. Si ce n'est pas 0, la base a déjà été restaurée,
+#   ne relance pas la commande de la section suivante.
 ```
 
-**Ne lance pas** `prisma/seed.ts` ni les scripts `import-*.ts` en production
-— ce sont les scripts qui ont *servi à produire* ce dump à l'origine ;
-les relancer écraserait ou dupliquerait les vraies données.
+### 6.3 Restaurer
+
+```bash
+docker compose exec -T postgres psql -v ON_ERROR_STOP=1 --single-transaction \
+  -U "$POSTGRES_USER" -d "$POSTGRES_DB" < data/gmao-seed.sql
+```
+
+`--single-transaction` encapsule tout le restore dans une seule
+transaction : si une ligne échoue en cours de route, **tout** est annulé
+proprement plutôt que de laisser la base à moitié remplie. `ON_ERROR_STOP=1`
+fait remonter un vrai code d'erreur (sinon `psql` continue et sort en 0
+même après une erreur SQL).
 
 Si `psql` refuse le dump avec une erreur du type
 `unrecognized command \restrict` : le `psql` embarqué dans l'image
@@ -215,18 +251,34 @@ docker compose pull postgres && docker compose up -d postgres
 
 # Solution 2 : retirer les deux lignes avant de restaurer
 grep -v '^\\restrict\|^\\unrestrict' data/gmao-seed.sql | \
-  docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+  docker compose exec -T postgres psql -v ON_ERROR_STOP=1 --single-transaction \
+  -U "$POSTGRES_USER" -d "$POSTGRES_DB"
 ```
 
-Vérifie ensuite que les données sont bien là :
+### 6.4 Vérifier que tout est bien là
+
+Ce dump précis doit amener exactement ces volumes (à titre de repère — si un
+chiffre est à 0 ou très différent, quelque chose s'est mal passé) :
 
 ```bash
-docker compose exec postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-  -c 'SELECT count(*) FROM "Supermarket";'
+docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "
+SELECT 'Supermarket' AS tbl, count(*) FROM \"Supermarket\"
+UNION ALL SELECT 'User', count(*) FROM \"User\"
+UNION ALL SELECT 'Localisation', count(*) FROM \"Localisation\"
+UNION ALL SELECT 'Equipment', count(*) FROM \"Equipment\"
+UNION ALL SELECT 'PreventivePlan', count(*) FROM \"PreventivePlan\"
+UNION ALL SELECT 'Ticket', count(*) FROM \"Ticket\"
+UNION ALL SELECT 'RondeConfiguration', count(*) FROM \"RondeConfiguration\";"
 ```
 
+Attendu : `Supermarket`=10, `User`=12, `Localisation`=170, `Equipment`=305,
+`PreventivePlan`=33, `Ticket`=256, `RondeConfiguration`=5. (Ce sont les
+comptes du dump actuel — s'il est régénéré plus tard avec plus de données,
+ces chiffres serviront juste de point de référence pour toi, pas une
+validation figée dans le temps.)
+
 Ouvre enfin `http://<ip-du-serveur>/login` dans un navigateur et connecte-toi
-avec un compte réel existant dans le dump.
+avec un compte réel existant dans le dump (un des 12 `User`).
 
 ---
 
