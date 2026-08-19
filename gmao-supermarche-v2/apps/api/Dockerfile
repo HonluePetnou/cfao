@@ -24,8 +24,10 @@ COPY apps/api ./apps/api
 # npm workspaces doesn't always hoist `prisma` to the root node_modules/.bin
 # (it can stay nested in apps/api/node_modules/.bin) — bare `npx prisma` run
 # from /app then fails with "prisma: not found". `npm exec --workspace=api`
-# resolves the binary correctly either way.
-RUN npm exec --workspace=api -- prisma generate --schema=apps/api/prisma/schema.prisma
+# resolves the binary correctly either way — but it also runs the command
+# with apps/api/ as the working directory, so the schema path below is
+# relative to apps/api/, not to /app.
+RUN npm exec --workspace=api -- prisma generate --schema=prisma/schema.prisma
 RUN npm run build --workspace=api
 
 FROM node:20-alpine AS runner
@@ -45,4 +47,4 @@ COPY --from=builder /app/data ./data
 
 EXPOSE 4000
 
-CMD ["sh", "-c", "npm exec --workspace=api -- prisma db push --schema=apps/api/prisma/schema.prisma && node apps/api/dist/main.js"]
+CMD ["sh", "-c", "npm exec --workspace=api -- prisma db push --schema=prisma/schema.prisma && node apps/api/dist/main.js"]
