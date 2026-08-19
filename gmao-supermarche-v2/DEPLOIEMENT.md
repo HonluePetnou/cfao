@@ -234,11 +234,30 @@ du dump SQL — via `data/gmao-seed.sql`, transféré à part à l'étape 3
 Une fois `docker compose up -d --build` fait (section 5) et le fichier en
 place :
 
+**Serveur Linux/macOS (bash disponible) :**
+
 ```bash
 ./scripts/restore-data.sh
 ```
 
-Le script gère tout seul :
+**Serveur Windows sans bash** (ex. Windows Server + Docker Desktop, pas de
+Git Bash ni de distro WSL avec l'intégration Docker activée) — équivalent
+strict en PowerShell, mêmes garanties (idempotent, transaction unique) :
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\restore-data.ps1
+```
+
+`scripts\restore-data.ps1` est volontairement écrit en ASCII pur (pas
+d'accents) : Windows PowerShell 5.1 lit mal un `.ps1` contenant des
+caractères non-ASCII quand le fichier n'a pas de BOM UTF-8 (ce que produit
+Notepad par défaut) — ça casse le parsing du script. Si tu le modifies,
+garde-le en ASCII.
+
+Pour Windows, seule la commande change (celle ci-dessus) — tout le reste du
+plan est identique.
+
+Dans les deux cas (bash ou PowerShell), le script gère tout seul :
 - **attend** que le schéma existe (poll jusqu'à 2 min — le conteneur `api`
   doit être passé par `prisma db push` au démarrage) ;
 - **vérifie que la base est vide** avant de restaurer, et ne fait rien si
