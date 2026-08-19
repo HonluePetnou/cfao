@@ -55,7 +55,12 @@ Write-Host "Waiting for the schema to exist (api container healthy, prisma db pu
 $tries = 0
 $maxTries = 24
 while ($true) {
-    $null = & docker compose exec -T postgres psql -U $PgUser -d $PgDb -c "SELECT 1 FROM ""Supermarket"" LIMIT 1;" 2>$null
+    # Only redirect stdout (1>), never stderr (2>), on a native command here:
+    # under $ErrorActionPreference = "Stop", PowerShell 5.1 wraps a native
+    # command's stderr text into a terminating NativeCommandError when it's
+    # redirected - which would kill this loop on the very first (expected)
+    # "relation does not exist" failure instead of retrying.
+    $null = & docker compose exec -T postgres psql -U $PgUser -d $PgDb -c "SELECT 1 FROM ""Supermarket"" LIMIT 1;" 1>$null
     if ($LASTEXITCODE -eq 0) { break }
     $tries++
     if ($tries -ge $maxTries) {
