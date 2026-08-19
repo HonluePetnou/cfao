@@ -56,10 +56,11 @@ if [ "$existing" != "0" ]; then
 fi
 
 echo "Restauration de $DUMP_FILE ..."
-# Strip \restrict/\unrestrict: newer pg_dump emits them, older psql clients
-# (e.g. bundled with postgres:15-alpine) may not understand them yet.
-# Harmless to drop — they're a client-side safety meta-command, not data.
-grep -v '^\\restrict\|^\\unrestrict' "$DUMP_FILE" | \
+# Strip lines the dump's source (pg_dump 18.1) emits that our postgres:15
+# target doesn't understand — harmless to drop, none of them affect data:
+# - \restrict/\unrestrict: client-side safety meta-command (newer psql).
+# - SET transaction_timeout: session GUC only added in PostgreSQL 17.
+grep -v '^\\restrict\|^\\unrestrict\|^SET transaction_timeout' "$DUMP_FILE" | \
   psql_exec -v ON_ERROR_STOP=1 --single-transaction
 
 echo "Restauration terminée. Vérification :"

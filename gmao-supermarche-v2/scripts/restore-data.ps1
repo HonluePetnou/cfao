@@ -78,10 +78,11 @@ if ($existing -ne "0") {
 }
 
 Write-Host "Restoring $DumpFile ..."
-# Strip \restrict/\unrestrict: newer pg_dump emits them, older psql clients
-# (e.g. bundled with postgres:15-alpine) may not understand them yet.
-# Harmless to drop - they're a client-side safety meta-command, not data.
-Get-Content $DumpFile | Where-Object { $_ -notmatch "^\\(restrict|unrestrict)\b" } |
+# Strip lines the dump's source (pg_dump 18.1) emits that our postgres:15
+# target doesn't understand - harmless to drop, none of them affect data:
+# - \restrict/\unrestrict: client-side safety meta-command (newer psql).
+# - SET transaction_timeout: session GUC only added in PostgreSQL 17.
+Get-Content $DumpFile | Where-Object { $_ -notmatch "^\\(restrict|unrestrict)\b" -and $_ -notmatch "^SET transaction_timeout" } |
     & docker compose exec -T postgres psql -v ON_ERROR_STOP=1 --single-transaction -U $PgUser -d $PgDb
 
 if ($LASTEXITCODE -ne 0) {
