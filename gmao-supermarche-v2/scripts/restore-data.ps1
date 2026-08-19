@@ -60,7 +60,14 @@ while ($true) {
     # command's stderr text into a terminating NativeCommandError when it's
     # redirected - which would kill this loop on the very first (expected)
     # "relation does not exist" failure instead of retrying.
-    $null = & docker compose exec -T postgres psql -U $PgUser -d $PgDb -c "SELECT 1 FROM ""Supermarket"" LIMIT 1;" 1>$null
+    #
+    # Single-quoted -c argument on purpose: PowerShell 5.1 does not reliably
+    # pass a `""`-escaped embedded double quote through to a native exe's
+    # argument list (it can get silently dropped), which would turn
+    # `"Supermarket"` into an unquoted, lowercase-folded `Supermarket` that
+    # never matches the real (mixed-case) table. A single-quoted PS string
+    # needs no such escaping, so the literal " characters survive intact.
+    $null = & docker compose exec -T postgres psql -U $PgUser -d $PgDb -c 'SELECT 1 FROM "Supermarket" LIMIT 1;' 1>$null
     if ($LASTEXITCODE -eq 0) { break }
     $tries++
     if ($tries -ge $maxTries) {
@@ -70,7 +77,7 @@ while ($true) {
     Start-Sleep -Seconds 5
 }
 
-$existing = (& docker compose exec -T postgres psql -U $PgUser -d $PgDb -t -A -c "SELECT count(*) FROM ""Supermarket"";").Trim()
+$existing = (& docker compose exec -T postgres psql -U $PgUser -d $PgDb -t -A -c 'SELECT count(*) FROM "Supermarket";').Trim()
 if ($existing -ne "0") {
     Write-Host "Database already has data (Supermarket: $existing rows) - restore skipped."
     Write-Host "To reload from scratch you must empty the database by hand first (destructive, outside this script)."
@@ -91,11 +98,14 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "Restore done. Verification:"
-$verifySql = "SELECT 'Supermarket' AS tbl, count(*) FROM ""Supermarket"" " +
-    "UNION ALL SELECT 'User', count(*) FROM ""User"" " +
-    "UNION ALL SELECT 'Localisation', count(*) FROM ""Localisation"" " +
-    "UNION ALL SELECT 'Equipment', count(*) FROM ""Equipment"" " +
-    "UNION ALL SELECT 'PreventivePlan', count(*) FROM ""PreventivePlan"" " +
-    "UNION ALL SELECT 'Ticket', count(*) FROM ""Ticket"" " +
-    "UNION ALL SELECT 'RondeConfiguration', count(*) FROM ""RondeConfiguration"";"
+# Single-quoted throughout (see the wait-loop comment above for why) - SQL
+# string literals ('Supermarket', 'User', ...) need '' to embed a literal
+# single quote, same trick as "" does for double quotes in a "..." string.
+$verifySql = 'SELECT ''Supermarket'' AS tbl, count(*) FROM "Supermarket" ' +
+    'UNION ALL SELECT ''User'', count(*) FROM "User" ' +
+    'UNION ALL SELECT ''Localisation'', count(*) FROM "Localisation" ' +
+    'UNION ALL SELECT ''Equipment'', count(*) FROM "Equipment" ' +
+    'UNION ALL SELECT ''PreventivePlan'', count(*) FROM "PreventivePlan" ' +
+    'UNION ALL SELECT ''Ticket'', count(*) FROM "Ticket" ' +
+    'UNION ALL SELECT ''RondeConfiguration'', count(*) FROM "RondeConfiguration";'
 & docker compose exec -T postgres psql -U $PgUser -d $PgDb -c $verifySql
