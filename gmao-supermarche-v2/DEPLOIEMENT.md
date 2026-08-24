@@ -286,6 +286,49 @@ avec un compte réel existant dans le dump (un des 12 `User`).
 
 ---
 
+## 6bis. Réparer un encodage corrompu (si nécessaire)
+
+Une ancienne version de `restore-data.ps1` avait un bug qui remplaçait
+silencieusement chaque caractère accentué par un `?` littéral pendant la
+restauration sous PowerShell 5.1 (corrigé depuis — voir l'historique git de
+ce fichier). Si tu as restauré les données via une version antérieure de ce
+script, ou si tu vois des `?` à la place d'accents dans l'app (ex. "Entrep?t
+CFAO" au lieu de "Entrepôt CFAO"), utilise
+[`scripts/repair-encoding.ps1`](scripts/repair-encoding.ps1) pour corriger
+ça sans toucher aux autres données.
+
+Le script est **sûr par construction** : il charge une copie *propre* du
+dump original (`data/gmao-seed.sql`) dans un schéma Postgres isolé et
+temporaire (jamais dans `public`, jamais dans la base réelle), compare
+ligne par ligne avec les données live, et ne corrige que les valeurs où la
+corruption est confirmée sans ambiguïté (le texte live est identique au
+texte d'origine avec chaque caractère non-ASCII remplacé par `?`) — il ne
+touche jamais une valeur légitimement modifiée depuis dans l'application
+(ex. un titre de ticket édité, qui ne contient pas de `?`).
+
+Depuis `gmao-supermarche-v2/` sur le serveur (stack déjà démarrée,
+`data/gmao-seed.sql` présent — même fichier que la section 6) :
+
+```powershell
+# Dry-run d'abord : affiche tout ce qui serait corrigé, ne change rien
+powershell -ExecutionPolicy Bypass -File scripts\repair-encoding.ps1
+
+# Une fois la liste vérifiée, applique réellement les corrections
+powershell -ExecutionPolicy Bypass -File scripts\repair-encoding.ps1 -Apply
+```
+
+Le script fonctionne aussi bien sur Linux/macOS avec bash (mêmes
+commandes `docker compose exec` sous-jacentes) — un équivalent `.sh` n'a pas
+été jugé nécessaire vu que c'est une opération ponctuelle, à lancer une
+seule fois après un premier `restore-data.ps1` buggé.
+
+Sans-danger à relancer : une ligne déjà corrigée n'est plus signalée au
+passage suivant. Voir [`scripts/README.md`](scripts/README.md) pour le
+détail de comment ce script s'articule avec
+`apps/api/prisma/repair-encoding.ts`.
+
+---
+
 ## 7. Sauvegardes
 
 Base de données uniquement (le plus critique). Un simple cron sur l'hôte :
@@ -354,6 +397,8 @@ l'ajout se fait sans réécrire l'architecture :
 - [ ] `docker compose ps` → tous les services `healthy`/`running`
 - [ ] `curl http://127.0.0.1:4000/api/health` → `{"status":"ok"}`
 - [ ] `./scripts/restore-data.sh` lancé, connexion testée sur `http://<ip>/login`
+- [ ] Si des `?` apparaissent à la place d'accents : `scripts/repair-encoding.ps1`
+      lancé en dry-run puis `-Apply` (voir §6bis)
 - [ ] Cron de sauvegarde `pg_dump` en place, copié hors du serveur
 - [ ] Pare-feu du serveur confirmé : seuls 80, 8080 et 4343 sont ouverts en
       entrée (+ le port SSH déjà utilisé pour s'y connecter). `nginx` publie
