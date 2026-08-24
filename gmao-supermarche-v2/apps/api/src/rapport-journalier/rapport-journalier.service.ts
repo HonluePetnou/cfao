@@ -197,20 +197,33 @@ export class RapportJournalierService {
       },
     });
 
-    if (!tickets.length && !preventiveTasks.length) {
+    const rondes = await this.prisma.rondeJournaliere.findMany({
+      where: {
+        date: { gte: dayStart, lte: dayEnd },
+        maintenancierId: { not: null },
+      },
+      include: {
+        maintenancier: { select: { id: true, nom: true } },
+        supermarket: { select: { nom: true } },
+      },
+    });
+
+    if (!tickets.length && !preventiveTasks.length && !rondes.length) {
       throw new BadRequestException("Aucune activité trouvée pour cette date");
     }
 
     const maintenancierIds = [...new Set([
       ...tickets.filter(t => t.assignedMaintenancier).map(t => t.assignedMaintenancier!.id),
       ...preventiveTasks.filter(t => t.plan?.assignedMaintenancier).map(t => t.plan!.assignedMaintenancier!.id),
+      ...rondes.filter(r => r.maintenancier).map(r => r.maintenancier!.id),
     ])];
 
     const created: any[] = [];
     for (const mtnId of maintenancierIds) {
       const mtnTickets = tickets.filter(t => t.assignedMaintenancier?.id === mtnId);
       const mtnPreventiveTasks = preventiveTasks.filter(t => t.plan?.assignedMaintenancier?.id === mtnId);
-      const mtn = mtnTickets[0]?.assignedMaintenancier || mtnPreventiveTasks[0]?.plan?.assignedMaintenancier!;
+      const mtnRondes = rondes.filter(r => r.maintenancier?.id === mtnId);
+      const mtn = mtnTickets[0]?.assignedMaintenancier || mtnPreventiveTasks[0]?.plan?.assignedMaintenancier! || mtnRondes[0]?.maintenancier!;
 
       const ticketLines = mtnTickets.map(t => {
         const type = t.typeTravaux || "Maint. Corrective";
@@ -221,8 +234,14 @@ export class RapportJournalierService {
         `- [Maint. Préventive] ${t.plan.titre} (${t.plan.equipment?.nom || "N/A"})${t.note ? ` : ${t.note}` : ""}`
       );
 
-      const activites = [...ticketLines, ...preventiveLines].join("\n");
-      const totalCount = mtnTickets.length + mtnPreventiveTasks.length;
+      const rondeLines = mtnRondes.map(r => {
+        const { total, nok } = this.countRondeChecks(r.checks);
+        const anomalie = nok > 0 ? `, ${nok} anomalie(s) relevée(s)` : ", RAS";
+        return `- [Ronde] Ronde effectuée à ${r.supermarket?.nom || "N/A"} — ${total} point(s) contrôlé(s)${anomalie}${r.observationsGenerales ? ` : ${r.observationsGenerales}` : ""}`;
+      });
+
+      const activites = [...ticketLines, ...preventiveLines, ...rondeLines].join("\n");
+      const totalCount = mtnTickets.length + mtnPreventiveTasks.length + mtnRondes.length;
       const summary = `${totalCount} intervention(s) traitée(s) le ${date}`;
 
       const existing = await this.prisma.rapportJournalier.findFirst({
@@ -253,6 +272,23 @@ export class RapportJournalierService {
     }
 
     return created.length === 1 ? created[0] : created;
+  }
+
+  private countRondeChecks(checksJson: string): { total: number; nok: number } {
+    let total = 0, nok = 0;
+    try {
+      const zones = JSON.parse(checksJson || "[]");
+      for (const z of zones) {
+        for (const eq of z.equipements || []) {
+          for (const creneau of ["09h", "15h"]) {
+            const v = eq[creneau];
+            if (v) total++;
+            if (v === "NOK") nok++;
+          }
+        }
+      }
+    } catch {}
+    return { total, nok };
   }
 
   async exportPdf(id: string) {
