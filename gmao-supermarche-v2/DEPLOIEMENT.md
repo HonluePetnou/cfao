@@ -101,9 +101,15 @@ Si `docker compose` (v2, sans tiret) n'existe pas mais `docker-compose` (v1)
 oui, remplace `docker compose` par `docker-compose` dans toutes les commandes
 ci-dessous — le reste est identique.
 
-Espace disque : compte large (node_modules + 2 images Node ~ 1-1.5 Go au
-total avant nettoyage), et RAM raisonnable pour Postgres/Redis/Node — 2 Go
-RAM minimum, 4 Go conseillés.
+Espace disque : `docker compose build` fait un `npm ci` séparé pour l'image
+`api` et pour l'image `web` (chacune ~0.7-0.9 Go de `node_modules`, mesuré en
+local), plus les images de base (`node:20-alpine` ×2, `postgres:15-alpine`,
+`redis`, `nginx`, ~0.4 Go à elles quatre). Compte ~3-4 Go pour les images
+finales une fois le build terminé, et jusqu'à 5-6 Go en pointe *pendant* le
+build tant que Docker garde en cache les couches intermédiaires des étages
+`builder` (`docker builder prune` récupère cet espace après coup si besoin).
+Prévois 10 Go de marge libre sur le serveur pour être tranquille. RAM
+raisonnable pour Postgres/Redis/Node — 2 Go minimum, 4 Go conseillés.
 
 ---
 
@@ -230,6 +236,40 @@ l'origine (ils lisent les `.xlsx`) ; les relancer écraserait
 vraies données. Le seul chemin à utiliser ici est la restauration directe
 du dump SQL — via `data/gmao-seed.sql`, transféré à part à l'étape 3
 (jamais par git, voir section 0).
+
+### Produire ce dump depuis la vraie base en prod (10.68.59.7)
+
+Cette étape se fait **entièrement toi-même, sur le serveur de prod actuel**
+— je n'ai jamais besoin de voir la vraie donnée pour t'aider à migrer :
+tout le reste de ce plan est écrit pour fonctionner uniquement à partir du
+fichier `.sql` que tu produis ici, jamais à partir d'un accès direct à la
+base.
+
+Directement sur le serveur qui héberge la base actuelle (ou via `-h` si tu
+t'y connectes à distance) :
+
+```bash
+pg_dump -h <hôte-ou-localhost> -U <user> -d <db> \
+  --data-only --inserts --column-inserts \
+  --exclude-table-data='_prisma_migrations' \
+  > gmao-seed.sql
+```
+
+- `--data-only` : uniquement les données (`INSERT INTO ...`), pas de
+  `CREATE TABLE` — c'est `prisma db push` (étape 5) qui crée déjà le schéma
+  dans la nouvelle base, à partir de `schema.prisma` ; un dump avec schéma
+  entrerait en conflit.
+- `--inserts --column-inserts` : format exact attendu par
+  `restore-data.sh`/`.ps1` (des `INSERT INTO public."Table" (colonnes...)
+  VALUES (...)` explicites, pas des blocs `COPY`) — c'est le format du
+  `data/gmao-seed.sql` actuel (généré à l'origine avec `pg_dump 18.1`).
+- Transfère ensuite ce fichier **directement** de l'ancien serveur vers le
+  nouveau (`scp`/`rsync` serveur-à-serveur, ou en repassant par ta machine
+  en intermédiaire si les deux ne se joignent pas directement) — jamais par
+  un canal public, jamais en me le collant dans le chat. Renomme-le
+  `data/gmao-seed.sql` sur le nouveau serveur (ou passe son chemin en
+  argument à `restore-data.sh`, voir plus bas) et continue avec la suite de
+  cette section.
 
 Une fois `docker compose up -d --build` fait (section 5) et le fichier en
 place :
