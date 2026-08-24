@@ -1,7 +1,8 @@
 import {
   Controller, Get, Post, Patch, Delete,
-  Body, Param, Query, UseGuards, Request,
+  Body, Param, Query, UseGuards, Request, Res, Header,
 } from "@nestjs/common";
+import { Response } from "express";
 import { RondeService } from "./ronde.service";
 import { JwtAuthGuard } from "../auth/jwt.guard";
 import { RolesGuard } from "../auth/roles.guard";
@@ -43,6 +44,14 @@ export class RondeController {
   @Get(":id")
   findById(@Param("id") id: string) {
     return this.service.findById(id);
+  }
+
+  @Get(":id/pdf")
+  @Header("Content-Type", "application/pdf")
+  @Header("Content-Disposition", 'attachment; filename="bilan-ronde.pdf"')
+  async exportPdf(@Param("id") id: string, @Res() res: Response) {
+    const buffer = await this.service.exportPdf(id);
+    res.send(buffer);
   }
 
   @Post()
