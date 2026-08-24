@@ -11,8 +11,12 @@ export class EquipmentsController {
 
   @Get()
   @Roles("SUPER_ADMIN", "MAINTENANCIER", "USER")
-  findAll(@Query("supermarketId") supermarketId?: string, @Query("localisationId") localisationId?: string) {
-    return this.service.findAll({ supermarketId, localisationId });
+  findAll(
+    @Query("supermarketId") supermarketId?: string,
+    @Query("localisationId") localisationId?: string,
+    @Query("includeInactive") includeInactive?: string,
+  ) {
+    return this.service.findAll({ supermarketId, localisationId, includeInactive: includeInactive === "true" });
   }
 
   @Get(":id")

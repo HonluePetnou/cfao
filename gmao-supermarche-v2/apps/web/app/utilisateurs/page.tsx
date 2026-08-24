@@ -45,7 +45,12 @@ export default function UtilisateursPage() {
       ]);
       setLocalisations(loc);
       setSupermarkets(sms);
-      setData(sid ? users.filter((u: any) => u.supermarketId === sid || !u.supermarketId) : users);
+      // Seul un "USER" (demandeur) est rattaché à un site précis. Un Super
+      // Admin ou un Maintenancier est universel par conception (voir
+      // PLAN_IMPLEMENTATION_GMAO_v2.md) : il doit rester visible quel que
+      // soit le site sélectionné dans la barre du haut, sinon deux admins
+      // peuvent devenir mutuellement invisibles selon leur sélection.
+      setData(sid ? users.filter((u: any) => u.role !== "USER" || u.supermarketId === sid || !u.supermarketId) : users);
     } catch {
       router.push("/login");
     } finally {
@@ -57,7 +62,10 @@ export default function UtilisateursPage() {
 
   const filteredData = data.filter((u) => {
     if (filterRole && u.role !== filterRole) return false;
-    if (filterDept && u.supermarketId !== filterDept) return false;
+    // Même raisonnement que dans `load` : un Super Admin/Maintenancier n'a
+    // pas de site, donc ce filtre ne doit s'appliquer qu'aux Demandeurs —
+    // sinon choisir un département masque systématiquement tous les admins.
+    if (filterDept && u.role === "USER" && u.supermarketId !== filterDept) return false;
     return true;
   });
 
@@ -66,7 +74,11 @@ export default function UtilisateursPage() {
     setError("");
     setSubmitting(true);
     try {
-      const payload: any = { ...form, supermarketId: getCurrentSupermarketId() };
+      // Seul un "USER" (demandeur) doit être rattaché au site actuellement
+      // sélectionné dans la barre du haut. Un Super Admin ou un Maintenancier
+      // est universel — lui coller ce site le rend invisible dans la liste
+      // dès qu'un autre site est sélectionné (voir le filtre dans `load`).
+      const payload: any = { ...form, supermarketId: form.role === "USER" ? getCurrentSupermarketId() : null };
       if (editId) {
         if (!payload.password) delete payload.password;
         await api.updateUser(editId, payload);
