@@ -85,12 +85,25 @@ if ($existing -ne "0") {
 }
 
 Write-Host "Restoring $DumpFile ..."
-# Strip lines the dump's source (pg_dump 18.1) emits that our postgres:15
-# target doesn't understand - harmless to drop, none of them affect data:
-# - \restrict/\unrestrict: client-side safety meta-command (newer psql).
-# - SET transaction_timeout: session GUC only added in PostgreSQL 17.
-Get-Content $DumpFile | Where-Object { $_ -notmatch "^\\(restrict|unrestrict)\b" -and $_ -notmatch "^SET transaction_timeout" } |
-    & docker compose exec -T postgres psql -v ON_ERROR_STOP=1 --single-transaction -U $PgUser -d $PgDb
+# Force UTF-8 both ways around the pipe below. Without this, PowerShell 5.1
+# decodes Get-Content's bytes using the system's ANSI codepage (not UTF-8 on
+# a French Windows install) and re-encodes them the same way when piping to
+# the native psql process's stdin - every accented character (e, e, o...)
+# in the dump silently becomes a literal "?" in the restored database. This
+# is exactly what forces both the read and the write side of the pipe to
+# treat the text as UTF-8 instead.
+$PrevOutputEncoding = $OutputEncoding
+$OutputEncoding = [System.Text.Encoding]::UTF8
+try {
+    # Strip lines the dump's source (pg_dump 18.1) emits that our postgres:15
+    # target doesn't understand - harmless to drop, none of them affect data:
+    # - \restrict/\unrestrict: client-side safety meta-command (newer psql).
+    # - SET transaction_timeout: session GUC only added in PostgreSQL 17.
+    Get-Content -Encoding UTF8 $DumpFile | Where-Object { $_ -notmatch "^\\(restrict|unrestrict)\b" -and $_ -notmatch "^SET transaction_timeout" } |
+        & docker compose exec -T postgres psql -v ON_ERROR_STOP=1 --single-transaction -U $PgUser -d $PgDb
+} finally {
+    $OutputEncoding = $PrevOutputEncoding
+}
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Restore failed (exit code $LASTEXITCODE) - see the psql messages above."

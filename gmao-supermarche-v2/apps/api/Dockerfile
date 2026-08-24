@@ -47,4 +47,4 @@ COPY --from=builder /app/data ./data
 
 EXPOSE 4000
 
-CMD ["sh", "-c", "npm exec --workspace=api -- prisma db push --schema=prisma/schema.prisma && node apps/api/dist/main.js"]
+CMD ["sh", "-c", "npm exec --workspace=api -- prisma db push --schema=prisma/schema.prisma --accept-data-loss && node apps/api/dist/main.js"]
