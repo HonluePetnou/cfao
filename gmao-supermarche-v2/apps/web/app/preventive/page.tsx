@@ -4,15 +4,17 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useConfirm } from "@/components/Confirm";
+import { useToast } from "@/components/Toast";
 import {
   ShieldCheck, Calendar, CheckCircle2, Loader2,
   FileText, AlertTriangle, RefreshCw, PlusCircle, ChevronLeft, ChevronRight,
-  Copy, Link, Trash2, Edit2, Check, ToggleLeft, ToggleRight,
+  ExternalLink, Trash2, Edit2, ToggleLeft, ToggleRight,
 } from "lucide-react";
 
 export default function PreventivePage() {
   const router = useRouter();
   const confirm = useConfirm();
+  const { success, error: toastError } = useToast();
   const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<"calendar" | "plans" | "tasks">("calendar");
 
@@ -34,7 +36,6 @@ export default function PreventivePage() {
 
   // Actions states
   const [actionId, setActionId] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [cronLoading, setCronLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -92,8 +93,11 @@ export default function PreventivePage() {
     setActionId(id);
     try {
       await api.markPreventiveTaskDone(id, "Validée manuellement par l'administrateur");
+      success("Tâche validée", "La tâche préventive a été marquée comme effectuée");
       loadData();
-    } catch {}
+    } catch {
+      toastError("Erreur", "Impossible de valider cette tâche.");
+    }
     setActionId(null);
   };
 
@@ -101,25 +105,29 @@ export default function PreventivePage() {
     setCronLoading(true);
     try {
       await api.triggerGenerateTasks();
+      success("Génération lancée", "Les prochaines échéances ont été générées");
       loadData();
-    } catch {}
+    } catch {
+      toastError("Erreur", "Impossible de générer les tâches.");
+    }
     setCronLoading(false);
   };
 
-  const handleCopyLink = (taskId: string) => {
+  // Le prestataire externe n'a pas accès à l'application : il remet une fiche
+  // papier à l'admin, qui remplit lui-même le formulaire de clôture. Ce bouton
+  // ouvre donc directement ce formulaire (au lieu de copier un lien à envoyer).
+  const handleOpenForm = (taskId: string) => {
     const link = `${window.location.origin}/public/preventive/${taskId}`;
-    navigator.clipboard.writeText(link)
-      .then(() => {
-        setCopiedId(taskId);
-        setTimeout(() => setCopiedId(null), 2000);
-      });
+    window.open(link, "_blank", "noopener,noreferrer");
   };
 
   const handlePlanToggle = async (plan: any) => {
     try {
       await api.updatePreventivePlan(plan.id, { active: !plan.active });
       loadData();
-    } catch {}
+    } catch {
+      toastError("Erreur", "Impossible de modifier ce plan.");
+    }
   };
 
   const handlePlanDelete = async (id: string) => {
@@ -132,8 +140,11 @@ export default function PreventivePage() {
     if (!ok) return;
     try {
       await api.deletePreventivePlan(id);
+      success("Plan supprimé", "Le plan préventif a été supprimé");
       loadData();
-    } catch {}
+    } catch {
+      toastError("Erreur", "Impossible de supprimer ce plan.");
+    }
   };
 
   const handleOpenCreateModal = () => {
@@ -374,9 +385,9 @@ export default function PreventivePage() {
                         </div>
                         {isAdmin && (
                           <div className="flex gap-2 shrink-0">
-                            <button onClick={() => handleCopyLink(t.id)}
-                              className={`p-2 rounded-xl border transition-all flex items-center justify-center w-8 h-8 ${copiedId === t.id ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}>
-                              {copiedId === t.id ? <Check size={14} /> : <Link size={14} />}
+                            <button onClick={() => handleOpenForm(t.id)} title="Ouvrir le formulaire"
+                              className="p-2 rounded-xl border transition-all flex items-center justify-center w-8 h-8 bg-white text-slate-600 border-slate-200 hover:bg-slate-50">
+                              <ExternalLink size={14} />
                             </button>
                             {!isProjected && t.status !== "EFFECTUE" && (
                               <button onClick={() => handleDone(t.id)} disabled={actionId === t.id}
@@ -516,10 +527,10 @@ export default function PreventivePage() {
 
                   {isAdmin && t.status !== "EFFECTUE" && (
                     <div className="flex gap-1.5 shrink-0 self-end sm:self-start">
-                      <button onClick={() => handleCopyLink(t.id)}
-                        className={`p-2 rounded-xl border transition-all text-xs font-semibold flex items-center gap-1 ${copiedId === t.id ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}>
-                        {copiedId === t.id ? <Check size={12} /> : <Link size={12} />}
-                        <span className="text-[10px]">{copiedId === t.id ? "Copié !" : "Lien prestataire"}</span>
+                      <button onClick={() => handleOpenForm(t.id)}
+                        className="p-2 rounded-xl border transition-all text-xs font-semibold flex items-center gap-1 bg-white text-slate-600 border-slate-200 hover:bg-slate-50">
+                        <ExternalLink size={12} />
+                        <span className="text-[10px]">Ouvrir le formulaire</span>
                       </button>
                       <button onClick={() => handleDone(t.id)} disabled={actionId === t.id} className="btn-secondary py-2 px-3 text-[10px]">
                         {actionId === t.id ? <Loader2 size={12} className="animate-spin" /> : "Valider"}

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma.service";
+import { addInterval } from "../common/date.util";
 
 @Injectable()
 export class PreventiveTasksService {
@@ -91,15 +92,7 @@ export class PreventiveTasksService {
         }
 
         // Incrémenter la date pour la récurrence
-        if (plan.intervalUnit === "DAYS") {
-          currentDate.setDate(currentDate.getDate() + val);
-        } else if (plan.intervalUnit === "WEEKS") {
-          currentDate.setDate(currentDate.getDate() + val * 7);
-        } else if (plan.intervalUnit === "MONTHS") {
-          currentDate.setMonth(currentDate.getMonth() + val);
-        } else if (plan.intervalUnit === "YEARS") {
-          currentDate.setFullYear(currentDate.getFullYear() + val);
-        }
+        currentDate = addInterval(currentDate, plan.intervalUnit as any, val);
       }
     }
 
@@ -185,11 +178,7 @@ export class PreventiveTasksService {
       const plan = task.plan;
       if (time >= plan.nextDate) {
         const val = plan.intervalValue > 0 ? plan.intervalValue : 30;
-        const next = new Date(time);
-        if (plan.intervalUnit === "DAYS") next.setDate(next.getDate() + val);
-        else if (plan.intervalUnit === "WEEKS") next.setDate(next.getDate() + val * 7);
-        else if (plan.intervalUnit === "MONTHS") next.setMonth(next.getMonth() + val);
-        else if (plan.intervalUnit === "YEARS") next.setFullYear(next.getFullYear() + val);
+        const next = addInterval(time, plan.intervalUnit as any, val);
 
         await this.prisma.preventivePlan.update({
           where: { id: planId },
@@ -230,8 +219,8 @@ export class PreventiveTasksService {
         localisation: eq.localisationId ? (await this.prisma.localisation.findUnique({ where: { id: eq.localisationId } }))?.nom : null,
         corpsEtat: eq.corpsEtat,
         typeTravaux: "MAINT_PREVENTIVE",
-        cout: data.cout ? parseFloat(data.cout as any) : null,
-        tempsArret: data.tempsArret ? parseFloat(data.tempsArret as any) : 0,
+        cout: data.cout !== undefined && data.cout !== null && (data.cout as any) !== "" ? parseFloat(data.cout as any) : null,
+        tempsArret: data.tempsArret !== undefined && data.tempsArret !== null && (data.tempsArret as any) !== "" ? parseFloat(data.tempsArret as any) : 0,
         financement: "OPEX",
         paiement: "Facture prestataire",
         dateDebutInterv: task.dueDate,
