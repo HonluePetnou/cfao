@@ -8,8 +8,13 @@ import { useToast } from "@/components/Toast";
 import {
   ShieldCheck, Calendar, CheckCircle2, Loader2,
   FileText, AlertTriangle, RefreshCw, PlusCircle, ChevronLeft, ChevronRight,
-  ExternalLink, Trash2, Edit2, ToggleLeft, ToggleRight,
+  ExternalLink, Trash2, Edit2, ToggleLeft, ToggleRight, ChevronUp, ChevronDown, ChevronsUpDown,
 } from "lucide-react";
+
+type PlanSortKey = "frequence" | "echeance";
+// Ramène une fréquence à un nombre de jours comparable, pour pouvoir trier
+// "tous les 2 mois" par rapport à "toutes les 3 semaines" sur une même échelle.
+const UNIT_TO_DAYS: Record<string, number> = { DAYS: 1, WEEKS: 7, MONTHS: 30, YEARS: 365 };
 
 export default function PreventivePage() {
   const router = useRouter();
@@ -33,6 +38,10 @@ export default function PreventivePage() {
   const [filterFrequence, setFilterFrequence] = useState("");
   const [filterDateDebutTaches, setFilterDateDebutTaches] = useState("");
   const [filterDateFinTaches, setFilterDateFinTaches] = useState("");
+
+  // Tri "Gestion des Plans" (clic sur les en-têtes Fréquence / Prochaine Échéance)
+  const [planSortKey, setPlanSortKey] = useState<PlanSortKey | null>(null);
+  const [planSortDir, setPlanSortDir] = useState<"asc" | "desc">("asc");
 
   // Actions states
   const [actionId, setActionId] = useState<string | null>(null);
@@ -145,6 +154,39 @@ export default function PreventivePage() {
     } catch {
       toastError("Erreur", "Impossible de supprimer ce plan.");
     }
+  };
+
+  // Clic sur un en-tête triable de "Gestion des Plans" : 1er clic = croissant,
+  // 2e clic sur la même colonne = décroissant, clic sur une autre colonne = repart en croissant.
+  const handlePlanSort = (key: PlanSortKey) => {
+    if (planSortKey === key) {
+      setPlanSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setPlanSortKey(key);
+      setPlanSortDir("asc");
+    }
+  };
+
+  const visiblePlans = useMemo(() => {
+    const filtered = plans.filter((p) => !filterFrequence || p.intervalUnit === filterFrequence);
+    if (!planSortKey) return filtered;
+    const dir = planSortDir === "asc" ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      if (planSortKey === "frequence") {
+        const aDays = (a.intervalValue || 0) * (UNIT_TO_DAYS[a.intervalUnit] || 0);
+        const bDays = (b.intervalValue || 0) * (UNIT_TO_DAYS[b.intervalUnit] || 0);
+        return (aDays - bDays) * dir;
+      }
+      // echeance
+      const aTime = new Date(a.nextDate).getTime();
+      const bTime = new Date(b.nextDate).getTime();
+      return (aTime - bTime) * dir;
+    });
+  }, [plans, filterFrequence, planSortKey, planSortDir]);
+
+  const PlanSortIcon = ({ column }: { column: PlanSortKey }) => {
+    if (planSortKey !== column) return <ChevronsUpDown size={11} className="text-slate-300" />;
+    return planSortDir === "asc" ? <ChevronUp size={11} className="text-orange" /> : <ChevronDown size={11} className="text-orange" />;
   };
 
   const handleOpenCreateModal = () => {
@@ -430,14 +472,18 @@ export default function PreventivePage() {
             <thead>
               <tr className="border-b border-slate-100 text-slate-400">
                 <th className="text-left pb-2 font-semibold">Titre / Équipement</th>
-                <th className="text-left pb-2 font-semibold">Fréquence</th>
-                <th className="text-left pb-2 font-semibold">Prochaine Échéance</th>
+                <th className="text-left pb-2 font-semibold cursor-pointer select-none hover:text-slate-600" onClick={() => handlePlanSort("frequence")}>
+                  <span className="inline-flex items-center gap-1">Fréquence <PlanSortIcon column="frequence" /></span>
+                </th>
+                <th className="text-left pb-2 font-semibold cursor-pointer select-none hover:text-slate-600" onClick={() => handlePlanSort("echeance")}>
+                  <span className="inline-flex items-center gap-1">Prochaine Échéance <PlanSortIcon column="echeance" /></span>
+                </th>
                 <th className="text-center pb-2 font-semibold w-16">Statut</th>
                 <th className="text-right pb-2 font-semibold w-24">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {plans.filter((p) => !filterFrequence || p.intervalUnit === filterFrequence).map((p) => (
+              {visiblePlans.map((p) => (
                 <tr key={p.id} className="hover:bg-slate-50/60">
                   <td className="py-2.5 max-w-[200px] truncate">
                     <p className="font-bold text-slate-800 leading-snug">{p.titre}</p>
@@ -464,7 +510,7 @@ export default function PreventivePage() {
                   </td>
                 </tr>
               ))}
-              {plans.filter((p) => !filterFrequence || p.intervalUnit === filterFrequence).length === 0 && (
+              {visiblePlans.length === 0 && (
                 <tr>
                   <td colSpan={5} className="py-10 text-center text-slate-400">Aucun plan préventif</td>
                 </tr>
