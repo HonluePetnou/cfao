@@ -137,10 +137,9 @@ export const api = {
   deleteRapportJournalier: (id: string) =>
     fetchApi(`/api/rapports-journaliers/${id}`, { method: "DELETE" }),
   signerRapport: (id: string, role: "technicien" | "responsable", nom?: string) =>
-    fetchApi(`/api/rapports-journaliers/${id}/signer`, {
-      method: "PATCH",
-      body: JSON.stringify({ role, nom }),
-    }),
+    role === "technicien"
+      ? fetchApi(`/api/rapports-journaliers/${id}/sign-technicien`, { method: "PATCH" })
+      : fetchApi(`/api/rapports-journaliers/${id}/sign-responsable`, { method: "PATCH", body: JSON.stringify({ nom }) }),
   signerTousRapports: (date: string, nom?: string) =>
     fetchApi("/api/rapports-journaliers/signer-tous", {
       method: "POST",
@@ -176,7 +175,7 @@ export const api = {
 
   exportRapportPdf: async (id: string) => {
     const token = sessionStorage.getItem("gmao_token");
-    const res = await fetch(`/api/rapports-journaliers/${id}/export`, {
+    const res = await fetch(`/api/rapports-journaliers/${id}/pdf`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (!res.ok) throw new Error("Erreur d'export PDF");

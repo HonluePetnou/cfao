@@ -69,6 +69,14 @@ export class RapportJournalierController {
     return this.service.signAllResponsable(body.ids, body.nom);
   }
 
+  // Signature groupée par journée (utilisée par le bouton "Visa Responsable"
+  // de la page Journaux) — signe tous les rapports non signés de la date donnée.
+  @Post("signer-tous")
+  @Roles("SUPER_ADMIN")
+  signerTous(@Body() body: { date: string; nom?: string }) {
+    return this.service.signerTous(body.date, body.nom);
+  }
+
   @Delete(":id")
   @Roles("SUPER_ADMIN")
   delete(@Param("id") id: string) {

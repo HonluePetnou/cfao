@@ -8,6 +8,8 @@ import {
   ArrowLeft, Wrench, CheckCircle2, ShieldAlert,
   Info
 } from "lucide-react";
+import { CORPS_ETAT_LIST } from "@/lib/constants";
+import Combobox from "@/components/Combobox";
 
 const PRIORITIES = [
   { key: "BASSE",    label: "Basse",    desc: "Peut attendre",   activeCls: "border-emerald-500 bg-emerald-500 text-white", inactiveCls: "border-emerald-200 text-emerald-700 bg-emerald-50/50", icon: BarChart2 },
@@ -23,19 +25,6 @@ const TYPE_TRAVAUX = [
   { key: "TRAVAUX_NEUFS", label: "Travaux neufs" }
 ];
 
-const CORPS_ETAT_LIST = [
-  "Climatisation / Ventilation",
-  "Électricité courant fort",
-  "Électricité courant faible",
-  "Équipement de production",
-  "Froid alimentaire",
-  "Génie civil / Bâtiment",
-  "Mécanique",
-  "Moyens de secours",
-  "Plomberie industrielle",
-  "Plomberie sanitaire",
-];
-
 export default function NouveauTicketMaintenancierPage() {
   const router = useRouter();
   const { success, error: toastError, warning } = useToast();
@@ -45,6 +34,8 @@ export default function NouveauTicketMaintenancierPage() {
   const [localisations, setLocalisations] = useState<any[]>([]);
 
   // Form states
+  const [supermarketId, setSupermarketId] = useState("");
+  const [supermarkets, setSupermarkets] = useState<any[]>([]);
   const [corpsEtat, setCorpsEtat] = useState("");
   const [localisation, setLocalisation] = useState("");
   const [equipmentId, setEquipmentId] = useState("");
@@ -61,6 +52,29 @@ export default function NouveauTicketMaintenancierPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
+  // Le maintenancier intervient sur tout le réseau (pas rattaché à un seul
+  // supermarché) : le site doit donc être choisi explicitement à chaque
+  // création de ticket, jamais déduit silencieusement d'un état de session
+  // qui traîne (sinon une intervention peut être enregistrée sur le mauvais
+  // site sans que personne ne s'en rende compte).
+  const loadForSite = async (smId: string) => {
+    const [eqs, locs] = await Promise.all([
+      smId ? api.getEquipments({ supermarketId: smId }) : Promise.resolve([]),
+      smId ? api.getLocalisations(smId) : Promise.resolve([]),
+    ]);
+    setEquipments(eqs);
+    setLocalisations(locs);
+  };
+
+  const handleSiteChange = (smId: string) => {
+    setSupermarketId(smId);
+    setCorpsEtat("");
+    setLocalisation("");
+    setEquipmentId("");
+    setBypassFilter(false);
+    loadForSite(smId);
+  };
+
   useEffect(() => {
     const raw = sessionStorage.getItem("gmao_user");
     if (!raw) { router.replace("/login"); return; }
@@ -70,25 +84,11 @@ export default function NouveauTicketMaintenancierPage() {
 
     const loadData = async () => {
       try {
-        let smId = u.supermarketId || (typeof window !== "undefined" ? sessionStorage.getItem("gmao_current_supermarket") : null);
-        if (!smId) {
-          const sms = await api.getSupermarkets().catch(() => []);
-          if (sms.length > 0) {
-            smId = sms[0].id;
-            if (typeof window !== "undefined") {
-              sessionStorage.setItem("gmao_current_supermarket", smId);
-            }
-          }
-        }
-
-        const [eqs, locs, mains] = await Promise.all([
-          smId ? api.getEquipments({ supermarketId: smId }) : api.getEquipments(),
-          smId ? api.getLocalisations(smId) : Promise.resolve([]),
+        const [sms, mains] = await Promise.all([
+          api.getSupermarkets().catch(() => []),
           api.getMaintenanciers(),
         ]);
-
-        setEquipments(eqs);
-        setLocalisations(locs);
+        setSupermarkets(sms);
         setMaintenanciers(mains);
         const self = mains.find((m: any) => m.id === u.id);
         if (self) {
@@ -104,15 +104,28 @@ export default function NouveauTicketMaintenancierPage() {
     loadData();
   }, [router]);
 
+  // Le formulaire d'un équipement créé pendant que cette page était déjà
+  // ouverte doit apparaître sans recharger manuellement : on rafraîchit la
+  // liste dès que l'onglet redevient actif.
+  useEffect(() => {
+    const onFocus = () => { if (supermarketId) loadForSite(supermarketId); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [supermarketId]);
+
   // Dynamically filter equipments in frontend to improve data entry quality
   const filteredEquipments = useMemo(() => {
     if (bypassFilter) return equipments;
     let list = [...equipments];
     if (corpsEtat) {
-      list = list.filter((eq) => eq.corpsEtat === corpsEtat);
+      list = list.filter((eq) => !eq.corpsEtat || eq.corpsEtat === corpsEtat);
     }
     if (localisation) {
-      list = list.filter((eq) => eq.localisation?.nom === localisation);
+      list = list.filter((eq) => !eq.localisation?.nom || eq.localisation.nom === localisation);
     }
     return list;
   }, [equipments, corpsEtat, localisation, bypassFilter]);
@@ -126,7 +139,7 @@ export default function NouveauTicketMaintenancierPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!equipmentId || !titre.trim() || !maintenancierId || !corpsEtat || !localisation) {
+    if (!supermarketId || !equipmentId || !titre.trim() || !maintenancierId || !corpsEtat || !localisation) {
       warning("Champs manquants", "Veuillez remplir tous les champs obligatoires (*)");
       setError("Veuillez remplir tous les champs obligatoires (*).");
       return;
@@ -189,7 +202,7 @@ export default function NouveauTicketMaintenancierPage() {
     );
   }
 
-  const canSubmit = !!equipmentId && !!titre.trim() && !!maintenancierId && !!corpsEtat && !!localisation && !submitting;
+  const canSubmit = !!supermarketId && !!equipmentId && !!titre.trim() && !!maintenancierId && !!corpsEtat && !!localisation && !submitting;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -220,10 +233,11 @@ export default function NouveauTicketMaintenancierPage() {
             className="h-full bg-orange transition-all duration-500"
             style={{
               width: `${Math.min(100, (
+                (supermarketId ? 10 : 0) +
                 (corpsEtat ? 15 : 0) +
                 (localisation ? 15 : 0) +
-                (equipmentId ? 20 : 0) +
-                (typeTravaux ? 10 : 0) +
+                (equipmentId ? 15 : 0) +
+                (typeTravaux ? 5 : 0) +
                 (titre.trim() ? 20 : 0) +
                 (priority ? 10 : 0) +
                 (maintenancierId ? 10 : 0)
@@ -242,10 +256,35 @@ export default function NouveauTicketMaintenancierPage() {
           </div>
         )}
 
-        {/* ── Section 1: Localisation & Equipement ── */}
+        {/* ── Section 1: Site ── */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="px-4 pt-4 pb-1 flex items-center gap-2">
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange text-white text-[10px] font-black">1</span>
+            <h2 className="text-sm font-bold text-slate-800">Site concerné</h2>
+          </div>
+          <div className="p-4">
+            <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
+              Supermarché <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={supermarketId}
+              onChange={(e) => handleSiteChange(e.target.value)}
+              required
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:border-orange focus:ring-2 focus:ring-orange/10 transition-all"
+            >
+              <option value="">Sélectionner le site...</option>
+              {supermarkets.map((s: any) => <option key={s.id} value={s.id}>{s.nom}</option>)}
+            </select>
+            <p className="text-[10px] text-slate-400 mt-1.5">
+              Vous intervenez sur tout le réseau — précisez toujours le site concerné par cette intervention.
+            </p>
+          </div>
+        </div>
+
+        {/* ── Section 2: Localisation & Equipement ── */}
+        <div className={`bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden transition-opacity ${!supermarketId ? "opacity-50 pointer-events-none" : ""}`}>
+          <div className="px-4 pt-4 pb-1 flex items-center gap-2">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange text-white text-[10px] font-black">2</span>
             <h2 className="text-sm font-bold text-slate-800">Localisation & Équipement</h2>
           </div>
           <div className="p-4 space-y-3.5">
@@ -253,34 +292,28 @@ export default function NouveauTicketMaintenancierPage() {
               <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
                 Corps d'état <span className="text-red-500">*</span>
               </label>
-              <select
+              <Combobox
                 value={corpsEtat}
-                onChange={(e) => setCorpsEtat(e.target.value)}
+                onChange={setCorpsEtat}
                 required
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:border-orange focus:ring-2 focus:ring-orange/10 transition-all"
-              >
-                <option value="">Sélectionner le corps d'état...</option>
-                {CORPS_ETAT_LIST.map((ce) => (
-                  <option key={ce} value={ce}>{ce}</option>
-                ))}
-              </select>
+                disabled={!supermarketId}
+                placeholder="Rechercher un corps d'état..."
+                options={CORPS_ETAT_LIST.map((ce) => ({ value: ce, label: ce }))}
+              />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
                 Zone / Localisation <span className="text-red-500">*</span>
               </label>
-              <select
+              <Combobox
                 value={localisation}
-                onChange={(e) => setLocalisation(e.target.value)}
+                onChange={setLocalisation}
                 required
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:border-orange focus:ring-2 focus:ring-orange/10 transition-all"
-              >
-                <option value="">Sélectionner la zone...</option>
-                {localisations.map((loc: any) => (
-                  <option key={loc.id} value={loc.nom}>{loc.nom}</option>
-                ))}
-              </select>
+                disabled={!supermarketId}
+                placeholder="Rechercher une zone..."
+                options={localisations.map((loc: any) => ({ value: loc.nom, label: loc.nom }))}
+              />
             </div>
 
             <div className="pt-1">
@@ -292,21 +325,19 @@ export default function NouveauTicketMaintenancierPage() {
                   </span>
                 )}
               </label>
-              <select
+              <Combobox
                 value={equipmentId}
-                onChange={(e) => setEquipmentId(e.target.value)}
+                onChange={setEquipmentId}
                 required
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:border-orange focus:ring-2 focus:ring-orange/10 transition-all"
-              >
-                <option value="">
-                  {filteredEquipments.length === 0 ? "Aucun équipement ne correspond" : "Sélectionner l'équipement..."}
-                </option>
-                {filteredEquipments.map((eq: any) => (
-                  <option key={eq.id} value={eq.id}>
-                    {eq.nom} {eq.corpsEtat ? `(${eq.corpsEtat.split(" ")[0]})` : ""}
-                  </option>
-                ))}
-              </select>
+                disabled={!supermarketId}
+                placeholder="Rechercher un équipement..."
+                emptyMessage="Aucun équipement ne correspond"
+                options={filteredEquipments.map((eq: any) => ({
+                  value: eq.id,
+                  label: eq.nom,
+                  sublabel: eq.corpsEtat ? `(${eq.corpsEtat.split(" ")[0]})` : "(non classé)",
+                }))}
+              />
 
               {/* Dynamic filter feedback */}
               {!bypassFilter && (corpsEtat || localisation) && filteredEquipments.length === 0 && (
@@ -339,10 +370,10 @@ export default function NouveauTicketMaintenancierPage() {
           </div>
         </div>
 
-        {/* ── Section 2: Type de travaux & Priorité ── */}
+        {/* ── Section 3: Type de travaux & Priorité ── */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="px-4 pt-4 pb-1 flex items-center gap-2">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange text-white text-[10px] font-black">2</span>
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange text-white text-[10px] font-black">3</span>
             <h2 className="text-sm font-bold text-slate-800">Type de travaux & Priorité</h2>
           </div>
           <div className="p-4 space-y-4">
@@ -392,10 +423,10 @@ export default function NouveauTicketMaintenancierPage() {
           </div>
         </div>
 
-        {/* ── Section 3: Description du problème ── */}
+        {/* ── Section 4: Description du problème ── */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="px-4 pt-4 pb-1 flex items-center gap-2">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange text-white text-[10px] font-black">3</span>
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange text-white text-[10px] font-black">4</span>
             <h2 className="text-sm font-bold text-slate-800">Détails de la demande</h2>
           </div>
           <div className="p-4 space-y-3">
@@ -429,10 +460,10 @@ export default function NouveauTicketMaintenancierPage() {
           </div>
         </div>
 
-        {/* ── Section 4: Technicien affecté ── */}
+        {/* ── Section 5: Technicien affecté ── */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="px-4 pt-4 pb-1 flex items-center gap-2">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange text-white text-[10px] font-black">4</span>
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange text-white text-[10px] font-black">5</span>
             <h2 className="text-sm font-bold text-slate-800">Assignation du technicien <span className="text-red-500">*</span></h2>
           </div>
           <div className="p-4">
@@ -490,7 +521,8 @@ export default function NouveauTicketMaintenancierPage() {
         </button>
         {!canSubmit && !submitting && (
           <p className="text-center text-[10px] text-slate-400 mt-2">
-            {!localisation ? "Sélectionnez une zone (*)" :
+            {!supermarketId ? "Sélectionnez le site concerné (*)" :
+             !localisation ? "Sélectionnez une zone (*)" :
              !corpsEtat ? "Sélectionnez un corps d'état (*)" :
              !equipmentId ? "Sélectionnez un équipement (*)" :
              !titre.trim() ? "Ajoutez un titre (*)" :

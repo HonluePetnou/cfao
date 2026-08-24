@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma.service";
+import { addInterval } from "../common/date.util";
 
 @Injectable()
 export class PreventivePlansService {
@@ -90,11 +91,8 @@ export class PreventivePlansService {
         },
       });
       created.push(task);
-      const delta = plan.intervalUnit === "DAYS" ? plan.intervalValue :
-        plan.intervalUnit === "WEEKS" ? plan.intervalValue * 7 :
-        plan.intervalUnit === "MONTHS" ? plan.intervalValue * 30 :
-        plan.intervalValue * 365;
-      const next = new Date(plan.nextDate.getTime() + delta * 86400000);
+      const val = plan.intervalValue > 0 ? plan.intervalValue : 30;
+      const next = addInterval(plan.nextDate, plan.intervalUnit as any, val);
       await this.prisma.preventivePlan.update({
         where: { id: plan.id },
         data: { lastDate: plan.nextDate, nextDate: next },

@@ -7,7 +7,10 @@ export class UsersService {
   constructor(private prisma: PrismaService) {}
 
   async findAll() {
-    return this.prisma.user.findMany({ select: { id: true, nom: true, email: true, role: true, supermarketId: true, localisationId: true, active: true } });
+    return this.prisma.user.findMany({
+      select: { id: true, nom: true, email: true, role: true, supermarketId: true, localisationId: true, active: true },
+      orderBy: { nom: "asc" },
+    });
   }
 
   async findById(id: string) {

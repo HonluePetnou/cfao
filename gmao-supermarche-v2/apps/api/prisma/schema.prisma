@@ -95,6 +95,7 @@ model Equipment {
 
 model Ticket {
   id                       String        @id @default(cuid())
+  numero                   Int           @unique @default(autoincrement())
   titre                    String
   description              String?
   priority                 Priority      @default(MOYENNE)
