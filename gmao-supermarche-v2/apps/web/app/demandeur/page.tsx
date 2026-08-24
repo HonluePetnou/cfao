@@ -268,7 +268,9 @@ export default function DemandeurPage() {
                             </span>
                           )}
                         </div>
-                        <h3 className="font-semibold text-slate-800 text-sm leading-snug truncate">{t.titre}</h3>
+                        <h3 className="font-semibold text-slate-800 text-sm leading-snug truncate">
+                          <span className="font-mono font-normal text-slate-400 mr-1">#{t.numero}</span>{t.titre}
+                        </h3>
                         {t.equipment?.nom && (
                           <p className="text-[11px] text-slate-400 mt-0.5 truncate">{t.equipment.nom}</p>
                         )}
@@ -370,7 +372,9 @@ export default function DemandeurPage() {
                           {STATUS_LABEL[t.status] || t.status}
                         </span>
                       </div>
-                      <p className="font-semibold text-slate-800 text-xs truncate group-hover:text-orange transition-colors">{t.titre}</p>
+                      <p className="font-semibold text-slate-800 text-xs truncate group-hover:text-orange transition-colors">
+                        <span className="font-mono font-normal text-slate-400 mr-1">#{t.numero}</span>{t.titre}
+                      </p>
                     </div>
                     <p className="text-[10px] text-slate-400 shrink-0">
                       {new Date(t.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })}

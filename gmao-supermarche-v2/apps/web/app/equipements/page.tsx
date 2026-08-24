@@ -6,6 +6,8 @@ import { api } from "@/lib/api";
 import { useConfirm } from "@/components/Confirm";
 import { useToast } from "@/components/Toast";
 import { Settings, PlusCircle, Loader2, Trash2, Check, X } from "lucide-react";
+import { CORPS_ETAT_LIST } from "@/lib/constants";
+import Combobox from "@/components/Combobox";
 
 export default function EquipementsPage() {
   const router = useRouter();
@@ -96,18 +98,11 @@ export default function EquipementsPage() {
     setForm({
       nom: item.nom,
       localisationId: item.localisationId || "",
-      criticite: item.criticite || "",
+      corpsEtat: item.corpsEtat || "",
     });
     setEditId(item.id);
     setShowForm(true);
   };
-
-  const criticiteOptions = [
-    { value: "basse", label: "Basse" },
-    { value: "moyenne", label: "Moyenne" },
-    { value: "haute", label: "Haute" },
-    { value: "critique", label: "Critique" },
-  ];
 
   return (
     <Shell
@@ -180,40 +175,27 @@ export default function EquipementsPage() {
                   <label className="block text-xs font-semibold text-slate-600 mb-1">
                     Localisation
                   </label>
-                  <select
+                  <Combobox
                     value={form.localisationId || ""}
-                    onChange={(e) =>
-                      setForm({ ...form, localisationId: e.target.value })
-                    }
+                    onChange={(v) => setForm({ ...form, localisationId: v })}
                     required
-                    className="select"
-                  >
-                    <option value="">Sélectionner...</option>
-                    {localisations.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.nom}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Rechercher une localisation..."
+                    options={localisations.map((d) => ({ value: d.id, label: d.nom }))}
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">
-                    Criticité
+                    Corps d'état
                   </label>
-                  <select
-                    value={form.criticite || ""}
-                    onChange={(e) =>
-                      setForm({ ...form, criticite: e.target.value })
-                    }
-                    className="select"
-                  >
-                    <option value="">Sélectionner...</option>
-                    {criticiteOptions.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
+                  <Combobox
+                    value={form.corpsEtat || ""}
+                    onChange={(v) => setForm({ ...form, corpsEtat: v })}
+                    placeholder="Rechercher un corps d'état..."
+                    options={CORPS_ETAT_LIST.map((ce) => ({ value: ce, label: ce }))}
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Nécessaire pour que cet équipement apparaisse dans le filtre de création de ticket.
+                  </p>
                 </div>
               </div>
               <div className="flex gap-2 mt-4">
@@ -273,6 +255,9 @@ export default function EquipementsPage() {
                     Localisation
                   </th>
                   <th className="text-left text-[10px] font-bold uppercase tracking-wider text-slate-400 pb-3 pr-4">
+                    Corps d'état
+                  </th>
+                  <th className="text-left text-[10px] font-bold uppercase tracking-wider text-slate-400 pb-3 pr-4">
                     Criticité
                   </th>
                   <th className="w-20" />
@@ -289,6 +274,18 @@ export default function EquipementsPage() {
                     </td>
                     <td className="py-3 pr-4 text-slate-500">
                       {row.localisation?.nom || "—"}
+                    </td>
+                    <td className="py-3 pr-4">
+                      {row.corpsEtat ? (
+                        <span className="text-slate-500">{row.corpsEtat}</span>
+                      ) : (
+                        <span
+                          className="text-amber-600 text-[11px] font-semibold"
+                          title="Sans corps d'état, cet équipement n'apparaît pas dans le filtre de création de ticket"
+                        >
+                          Manquant
+                        </span>
+                      )}
                     </td>
                     <td className="py-3 pr-4">
                       {row.criticite ? (

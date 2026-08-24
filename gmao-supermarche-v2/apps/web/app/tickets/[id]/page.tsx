@@ -164,6 +164,7 @@ export default function TicketDetailPage() {
           <div className="card">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
+                <p className="text-[11px] font-mono font-bold text-slate-400">#{ticket.numero}</p>
                 <h1 className="text-base font-bold text-slate-900 leading-tight">{ticket.titre}</h1>
                 <p className="text-xs text-slate-400 mt-0.5">
                   {ticket.equipment?.nom}
@@ -356,6 +357,7 @@ export default function TicketDetailPage() {
         <div className="card">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
+              <p className="text-xs font-mono font-bold text-slate-400">#{ticket.numero}</p>
               <h1 className="text-lg font-bold text-slate-900 leading-tight">{ticket.titre}</h1>
               <p className="text-sm text-slate-400 mt-0.5">
                 {ticket.equipment?.nom}

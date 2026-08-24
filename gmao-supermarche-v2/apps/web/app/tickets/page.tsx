@@ -79,8 +79,12 @@ export default function TicketsPage() {
       else list = list.filter((t) => t.status === activeTab);
     }
     if (search) {
-      const q = search.toLowerCase();
-      list = list.filter((t) => t.titre?.toLowerCase().includes(q) || t.equipment?.nom?.toLowerCase().includes(q));
+      const q = search.toLowerCase().replace(/^#/, "");
+      list = list.filter((t) =>
+        t.titre?.toLowerCase().includes(q) ||
+        t.equipment?.nom?.toLowerCase().includes(q) ||
+        String(t.numero) === q
+      );
     }
     if (sortByPriority) list.sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 9) - (PRIORITY_ORDER[b.priority] ?? 9));
     return list;
@@ -149,6 +153,7 @@ export default function TicketsPage() {
               <div className="p-4 flex items-center gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center flex-wrap gap-2 mb-1.5">
+                    <span className="text-[10px] font-mono font-bold text-slate-400">#{t.numero}</span>
                     <span className={`badge ${PRIORITY_BADGE[t.priority]}`}>{PRIORITY_LABEL[t.priority]}</span>
                     <span className={`status-badge ${STATUS_BADGE[t.status]}`}>{STATUS_LABEL[t.status]}</span>
                     {t.typeTravaux && <span className="text-[10px] text-slate-400 bg-slate-100 rounded px-1.5 py-0.5">{t.typeTravaux.replace("Maint. ", "")}</span>}

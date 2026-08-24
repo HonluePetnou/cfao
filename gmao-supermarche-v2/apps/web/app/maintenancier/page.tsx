@@ -398,7 +398,7 @@ export default function MaintenancierPage() {
                         )}
                       </div>
                       <h3 className="font-bold text-slate-800 text-xs leading-snug truncate group-hover:text-orange transition-colors">
-                        {t.titre}
+                        <span className="font-mono font-normal text-slate-400 mr-1">#{t.numero}</span>{t.titre}
                       </h3>
                       <p className="text-[10px] text-slate-400 mt-0.5 truncate">
                         {t.equipment?.nom}{t.localisation ? ` · ${t.localisation}` : ""}

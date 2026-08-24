@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { Send, Loader2, BarChart2, Clock, TrendingUp, Zap, ArrowLeft } from "lucide-react";
+import { CORPS_ETAT_LIST } from "@/lib/constants";
+import Combobox from "@/components/Combobox";
 
 const PRIORITIES = [
   { key: "BASSE",    label: "Basse",    activeCls: "bg-emerald-500 border-emerald-500 text-white",  inactiveCls: "border-emerald-300 text-emerald-600 hover:bg-emerald-50", icon: BarChart2 },
@@ -12,18 +14,6 @@ const PRIORITIES = [
   { key: "CRITIQUE", label: "Critique", activeCls: "bg-red-500 border-red-500 text-white",           inactiveCls: "border-red-400 text-red-600 hover:bg-red-50",           icon: Zap },
 ];
 const TYPE_TRAVAUX = ["Maint. Corrective", "Maint. Préventive", "Maint. Améliorative", "Travaux neufs"];
-const CORPS_ETAT_LIST = [
-  "Climatisation / Ventilation",
-  "Électricité courant fort",
-  "Électricité courant faible",
-  "Équipement de production",
-  "Froid alimentaire",
-  "Génie civil / Bâtiment",
-  "Mécanique",
-  "Moyens de secours",
-  "Plomberie industrielle",
-  "Plomberie sanitaire"
-];
 
 export default function NewTicketPage() {
   const router = useRouter();
@@ -80,6 +70,22 @@ export default function NewTicketPage() {
       .finally(() => setLoading(false));
   }, [router]);
 
+  // Un équipement créé pendant que cette page était déjà ouverte doit
+  // apparaître sans recharger la page à la main.
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      const fetchEqs = selectedSmId ? api.getEquipments({ supermarketId: selectedSmId }) : api.getEquipments();
+      fetchEqs.then(setEquipments).catch(() => {});
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [selectedSmId]);
+
   const handleSmChange = async (smId: string) => {
     setSelectedSmId(smId);
     setEquipmentId("");
@@ -98,8 +104,8 @@ export default function NewTicketPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!equipmentId || !maintenancierId || !titre) {
-      setError("Veuillez remplir tous les champs obligatoires.");
+    if (!selectedSmId || !equipmentId || !maintenancierId || !titre) {
+      setError("Veuillez remplir tous les champs obligatoires, y compris le supermarché.");
       return;
     }
     setError("");
@@ -156,19 +162,15 @@ export default function NewTicketPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-navy mb-1.5">Corps d'état <span className="text-orange">*</span></label>
-                <select value={corpsEtat} onChange={(e) => setCorpsEtat(e.target.value)} required className="select">
-                  <option value="">Sélectionner...</option>
-                  {CORPS_ETAT_LIST.map((ce) => <option key={ce} value={ce}>{ce}</option>)}
-                </select>
+                <Combobox value={corpsEtat} onChange={setCorpsEtat} required
+                  placeholder="Rechercher un corps d'état..."
+                  options={CORPS_ETAT_LIST.map((ce) => ({ value: ce, label: ce }))} />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-navy mb-1.5">Localisation <span className="text-orange">*</span></label>
-                <select value={localisation} onChange={(e) => setLocalisation(e.target.value)} required className="select">
-                  <option value="">Sélectionner...</option>
-                  {localisations.map((loc: any) => (
-                    <option key={loc.id} value={loc.nom}>{loc.nom}</option>
-                  ))}
-                </select>
+                <Combobox value={localisation} onChange={setLocalisation} required
+                  placeholder="Rechercher une zone..."
+                  options={localisations.map((loc: any) => ({ value: loc.nom, label: loc.nom }))} />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-navy mb-1.5">Type de travaux <span className="text-orange">*</span></label>
@@ -178,10 +180,9 @@ export default function NewTicketPage() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-navy mb-1.5">Équipement concerné <span className="text-orange">*</span></label>
-                <select value={equipmentId} onChange={(e) => setEquipmentId(e.target.value)} required className="select">
-                  <option value="">Sélectionner...</option>
-                  {equipments.map((eq: any) => <option key={eq.id} value={eq.id}>{eq.nom}</option>)}
-                </select>
+                <Combobox value={equipmentId} onChange={setEquipmentId} required
+                  placeholder="Rechercher un équipement..."
+                  options={equipments.map((eq: any) => ({ value: eq.id, label: eq.nom, sublabel: eq.corpsEtat ? `(${eq.corpsEtat.split(" ")[0]})` : undefined }))} />
               </div>
             </div>
           </div>
