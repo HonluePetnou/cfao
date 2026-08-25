@@ -61,7 +61,13 @@ $countSql = "SELECT 'Ticket' AS tbl, count(*) FROM `"Ticket`" WHERE `"createdAt`
 
 Write-Host "Comptage des lignes concernees (avant $BeforeDate) :"
 Write-Host "----------------------------------------------------------------------"
-& docker compose exec -T postgres psql -U $PgUser -d $PgDb -c $countSql
+# Passe la requete par l'entree standard plutot que par -c : PowerShell 5.1
+# perd/mescape les guillemets doubles quand une chaine qui en contient est
+# passee comme argument a un executable natif (docker), ce qui faisait
+# arriver `Ticket` sans guillemets a Postgres (=> lu en minuscule `ticket`,
+# relation inexistante). Meme technique deja utilisee avec succes par
+# restore-data.sh/repair-encoding.ps1 pour charger le dump.
+$countSql | & docker compose exec -T postgres psql -U $PgUser -d $PgDb
 if ($LASTEXITCODE -ne 0) { Write-Error "Le comptage a echoue."; exit 1 }
 Write-Host "----------------------------------------------------------------------"
 
@@ -93,7 +99,7 @@ $deleteSql = "DELETE FROM `"Ticket`" WHERE `"createdAt`" < '$BeforeDate'; " +
              "DELETE FROM `"RapportJournalier`" WHERE `"date`" < '$BeforeDate'; " +
              "DELETE FROM `"RondeJournaliere`" WHERE `"date`" < '$BeforeDate'; " +
              "DELETE FROM `"PreventiveTask`" WHERE `"createdAt`" < '$BeforeDate';"
-& docker compose exec -T postgres psql -U $PgUser -d $PgDb -v ON_ERROR_STOP=1 --single-transaction -c $deleteSql
+$deleteSql | & docker compose exec -T postgres psql -U $PgUser -d $PgDb -v ON_ERROR_STOP=1 --single-transaction
 if ($LASTEXITCODE -ne 0) {
     Write-Error "La suppression a echoue en cours de route - verifie l'etat de la base. Sauvegarde disponible : $backupFile"
     exit 1
