@@ -42,6 +42,11 @@ ENV PORT=4000
 
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/node_modules ./node_modules
+# packages/config contient tsconfig.base.json dont apps/api/tsconfig.json
+# dépend — inutile pour lancer l'app déjà compilée (node dist/main.js), mais
+# nécessaire pour ts-node (utilisé ponctuellement par les scripts de
+# maintenance comme prisma/repair-encoding.ts, qui compilent à la volée).
+COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/apps/api ./apps/api
 COPY --from=builder /app/data ./data
 

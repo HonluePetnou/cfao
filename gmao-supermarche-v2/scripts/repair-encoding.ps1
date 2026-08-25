@@ -95,6 +95,16 @@ Write-Host "Copying the latest repair-encoding.ts into the container (no rebuild
 & docker compose cp apps/api/prisma/repair-encoding.ts api:/app/apps/api/prisma/repair-encoding.ts
 if ($LASTEXITCODE -ne 0) { Write-Error "Could not copy the script into the container."; exit 1 }
 
+# ts-node compiles apps/api/prisma/repair-encoding.ts on the fly and needs
+# apps/api/tsconfig.json's full `extends` chain to do it, including
+# packages/config/tsconfig.base.json. The runner image only ships that on
+# images built after this comment was added (see apps/api/Dockerfile) — copy
+# it in directly so this also works against an image built before that fix,
+# with no rebuild required. Harmless/no-op once the image already has it.
+Write-Host "Copying packages/ into the container (tsconfig dependency for ts-node)..."
+& docker compose cp packages api:/app/packages
+if ($LASTEXITCODE -ne 0) { Write-Error "Could not copy packages/ into the container."; exit 1 }
+
 Write-Host ""
 Write-Host "Comparing and $(if ($Apply) { 'applying fixes' } else { 'reporting (dry-run)' })..."
 Write-Host "----------------------------------------------------------------------"
