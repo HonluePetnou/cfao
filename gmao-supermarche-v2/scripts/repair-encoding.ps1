@@ -91,6 +91,10 @@ try {
 }
 if ($LASTEXITCODE -ne 0) { Write-Error "Loading the dump into the temporary schema failed."; exit 1 }
 
+Write-Host "Copying the latest repair-encoding.ts into the container (no rebuild needed to pick up script fixes)..."
+& docker compose cp apps/api/prisma/repair-encoding.ts api:/app/apps/api/prisma/repair-encoding.ts
+if ($LASTEXITCODE -ne 0) { Write-Error "Could not copy the script into the container."; exit 1 }
+
 Write-Host ""
 Write-Host "Comparing and $(if ($Apply) { 'applying fixes' } else { 'reporting (dry-run)' })..."
 Write-Host "----------------------------------------------------------------------"

@@ -1,6 +1,9 @@
 // Répare les textes corrompus par l'ancien bug d'encodage de restore-data.ps1
 // (voir son historique git) : PowerShell 5.1 a restauré data/gmao-seed.sql en
-// remplaçant chaque caractère accentué par un "?" littéral. Ce script compare
+// remplaçant chaque caractère accentué par un ou plusieurs "?" littéraux (un
+// seul dans certains cas, un par octet UTF-8 du caractère - donc 2 pour la
+// plupart des lettres accentuées françaises - dans d'autres, selon l'endroit
+// exact où le mauvais encodage a été appliqué). Ce script compare
 // les tables texte de la base réelle (schéma "public") à une copie propre du
 // dump original chargée dans un schéma temporaire, et ne corrige QUE les
 // lignes où la corruption est confirmée sans ambiguïté — jamais une valeur
@@ -33,15 +36,27 @@ function withSchema(url: string, schema: string): string {
   return u.toString();
 }
 
-// Un caractère accentué corrompu devient un "?" (0x3F) littéral — on vérifie
-// qu'en remplaçant chaque caractère non-ASCII de la version d'origine par
-// "?", on retombe exactement sur la version actuelle en base. C'est la seule
-// condition qui déclenche une correction.
+// Un caractère accentué corrompu devient un ou plusieurs "?" (0x3F)
+// littéraux selon le bug exact : parfois un seul "?" par caractère (le cas
+// initialement observé), parfois un "?" par OCTET UTF-8 du caractère (ex.
+// "é" - 2 octets en UTF-8 - devient "??") si le mauvais encodage a été
+// appliqué au niveau octet plutôt qu'au niveau caractère. On construit donc
+// un motif qui accepte n'importe quel nombre de "?" (au moins un) à la
+// place de chaque caractère non-ASCII de l'original, et on vérifie qu'il
+// capture la valeur actuelle en base dans son intégralité — la moindre
+// autre différence (une vraie modification faite depuis dans l'app) fait
+// échouer le motif, donc ne déclenche jamais de correction à tort.
 function isConfirmedCorruption(original: string, current: string): boolean {
   if (original === current) return false;
   if (!current.includes("?")) return false;
-  const collapsed = original.replace(/[^\x00-\x7F]/g, "?");
-  return collapsed === current;
+  const escaped = original.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Une RUN entière de caractères non-ASCII consécutifs devient un seul
+  // groupe "un-ou-plusieurs ?" (plutôt qu'un \?+ par caractère) : plus
+  // correct pour un nombre de "?" arbitraire sur toute la séquence, et ça
+  // évite tout risque de backtracking pathologique sur des quantificateurs
+  // adjacents identiques.
+  const pattern = escaped.replace(/[^\x00-\x7F]+/g, "\\?+");
+  return new RegExp(`^${pattern}$`).test(current);
 }
 
 // Tables/colonnes texte susceptibles de contenir des caractères accentués,
