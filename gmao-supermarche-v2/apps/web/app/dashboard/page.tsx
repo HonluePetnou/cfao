@@ -152,6 +152,14 @@ export default function DashboardPage() {
     (gmao?.bySupermarket ?? []).map((s: any) => ({ name: s.code || s.nom, value: s.cout })),
     [gmao]);
 
+  // Dépense par localisation
+  const coutLocalisationData = useMemo(() =>
+    Object.entries(gmao?.costs?.byLocalisation ?? {})
+      .map(([k, v]) => ({ name: k, value: v as number }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8),
+    [gmao]);
+
   // Donut local
   const localisationData = useMemo(() =>
     (gmao?.byLocalisation ?? []).slice(0, 8).map((l: any, i: number) => ({ name: l.localisation, value: l.count, fill: DONUT_COLORS[i % DONUT_COLORS.length] })),
@@ -453,6 +461,29 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Dépense par localisation — barres horizontales */}
+          <div className="card mb-3">
+            <SectionTitle>Dépense par localisation</SectionTitle>
+            {coutLocalisationData.length === 0 ? <Empty /> : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 mt-2">
+                {coutLocalisationData.map((d, i) => {
+                  const max = coutLocalisationData[0]?.value || 1;
+                  return (
+                    <div key={i}>
+                      <div className="flex justify-between text-[10px] mb-0.5">
+                        <span className="text-slate-600 truncate max-w-[200px]">{d.name}</span>
+                        <span className="font-bold text-slate-800 ml-2 shrink-0">{fmtXAFShort(d.value)}</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-slate-100">
+                        <div className="h-1.5 rounded-full bg-orange transition-all" style={{ width: `${(d.value / max) * 100}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* ── Ligne 5 : Panel fiabilité + Disponibilité radial + Taux préventif ── */}

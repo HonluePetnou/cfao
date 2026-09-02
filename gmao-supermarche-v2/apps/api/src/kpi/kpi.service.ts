@@ -185,7 +185,7 @@ export class KpiService {
   private async computeCosts(where: any) {
     const tickets = await this.prisma.ticket.findMany({
       where: { ...where, cout: { not: null } },
-      select: { cout: true, typeTravaux: true, corpsEtat: true, financement: true, equipmentId: true },
+      select: { cout: true, typeTravaux: true, corpsEtat: true, financement: true, equipmentId: true, localisation: true },
     });
 
     const total = tickets.reduce((s, t) => s + (t.cout ?? 0), 0);
@@ -200,6 +200,12 @@ export class KpiService {
       if (t.corpsEtat) byCorpsEtat[t.corpsEtat] = (byCorpsEtat[t.corpsEtat] ?? 0) + (t.cout ?? 0);
     });
 
+    // Par localisation
+    const byLocalisation: Record<string, number> = {};
+    tickets.forEach((t) => {
+      if (t.localisation) byLocalisation[t.localisation] = (byLocalisation[t.localisation] ?? 0) + (t.cout ?? 0);
+    });
+
     // CAPEX / OPEX
     const capex = tickets.filter((t) => t.financement?.toUpperCase() === "CAPEX").reduce((s, t) => s + (t.cout ?? 0), 0);
     const opex = tickets.filter((t) => t.financement?.toUpperCase() !== "CAPEX").reduce((s, t) => s + (t.cout ?? 0), 0);
@@ -207,7 +213,7 @@ export class KpiService {
     // Par type de travaux (pour dépenses)
     const byTypeTravaux: Record<string, number> = { corrective, preventive, ameliorative, travauxNeufs };
 
-    return { total, corrective, preventive, ameliorative, travauxNeufs, capex, opex, byCorpsEtat, byTypeTravaux };
+    return { total, corrective, preventive, ameliorative, travauxNeufs, capex, opex, byCorpsEtat, byLocalisation, byTypeTravaux };
   }
 
   // ─── Comptages ────────────────────────────────────────────────────────────────
