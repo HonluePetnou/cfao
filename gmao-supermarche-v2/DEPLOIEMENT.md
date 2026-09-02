@@ -389,27 +389,98 @@ pas d'une panne disque/serveur.
 
 ## 8. Mettre à jour l'application (déploiements suivants)
 
-```bash
-cd cfao/gmao-supermarche-v2
-git pull                       # ou re-rsync si pas de git sur le serveur
-docker compose build
-docker compose up -d
+Procédure réellement utilisée et vérifiée en production (serveur Windows,
+sans git côté serveur "ancien" — deux dossiers : un clone git à jour
+("nouveau") et le déploiement en place ("ancien") qui garde les vraies
+données). Si le serveur a git directement dans son propre dossier, saute
+l'étape 4 (`git pull` sur place suffit) et l'étape 5.
+
+### 8.1. Sauvegarde d'abord, sans exception
+
+Même pour une mise à jour "normale" — c'est gratuit, ne saute jamais cette
+étape :
+
+```powershell
+docker compose exec -T postgres pg_dump -U <POSTGRES_USER> <POSTGRES_DB> > backup-avant-deploy-$(Get-Date -Format yyyyMMdd-HHmm).sql
 ```
 
-`docker compose up -d` ne recrée que les conteneurs dont l'image ou la
-config a changé — `postgres`/`redis` (et leurs volumes de données) ne sont
-pas touchés.
+### 8.2. Récupérer le code à jour
+
+Dans le dossier "nouveau" (le clone git) :
+
+```powershell
+cd <chemin-nouveau>\gmao-supermarche-v2
+git pull
+```
+
+### 8.3. Vérifier que `docker-compose.yml` n'a pas divergé
+
+S'il a été retouché à la main sur le serveur (ports, volumes...), l'écraser
+ferait perdre ces réglages silencieusement :
+
+```powershell
+diff <chemin-nouveau>\gmao-supermarche-v2\docker-compose.yml <chemin-ancien>\gmao-supermarche-v2\docker-compose.yml
+```
+
+Vide → rien à faire. Une différence → décider au cas par cas avant de
+continuer (au besoin, exclure ce fichier de la copie ci-dessous).
+
+### 8.4. Copier le code par-dessus l'ancien déploiement
+
+Depuis "nouveau" vers "ancien", en excluant tout ce qui doit être préservé
+ou n'a rien à faire dans le transfert :
+
+```powershell
+rsync -av --exclude='.env' --exclude='.git' --exclude='node_modules' `
+  --exclude='.next' --exclude='.turbo' --exclude='apps/api/dist' `
+  --exclude='data/gmao-seed.sql' `
+  <chemin-nouveau>/gmao-supermarche-v2/ <chemin-ancien>/gmao-supermarche-v2/
+```
+
+- `.env` : les vrais secrets de prod, ne jamais écraser avec ceux de dev.
+- `data/gmao-seed.sql` : pas nécessaire pour une mise à jour de code, la
+  donnée reste en place.
+- `node_modules`/`.next`/`.turbo`/`dist` : régénérés par le build Docker,
+  inutiles à transférer.
+
+### 8.5. Rebuild et redémarrage — uniquement `api`/`web`
+
+**Jamais** un `docker compose up -d` (ou `build`) sans préciser les noms de
+service — ça recréerait aussi `postgres`/`redis` et republirait
+potentiellement leurs volumes selon ce que contient `docker-compose.yml` :
+
+```powershell
+cd <chemin-ancien>\gmao-supermarche-v2
+docker compose build api web
+docker compose up -d api web
+docker compose logs -f api
+```
+
+`postgres`/`redis` (et leurs volumes de données) ne sont jamais touchés par
+ces commandes. Vérifie dans les logs que `prisma db push` passe sans
+erreur et que Nest démarre (`Nest application successfully started`).
 
 ⚠️ **Point d'attention sur `prisma db push`** : il tourne à **chaque**
-démarrage du conteneur `api` (voir `CMD` du Dockerfile). Pour un changement
-de schéma non destructif (ajout de colonne/table), ça passe silencieusement.
-Pour un changement destructif (suppression de colonne, changement de type
-incompatible), `db push` demande une confirmation interactive — qui n'aura
-jamais lieu dans un conteneur, et le déploiement restera bloqué/échouera.
-Dans ce cas : teste le changement de schéma en local d'abord, et sache qu'il
-faudra passer en `--accept-data-loss` (en connaissance de cause, avec une
-sauvegarde fraîche) ou migrer vers de vraies migrations Prisma
-(`prisma migrate`) si les évolutions de schéma deviennent fréquentes.
+démarrage du conteneur `api` (voir `CMD` du Dockerfile), avec
+`--accept-data-loss` déjà intégré en permanence — un changement de schéma
+destructif (suppression de colonne, changement de type incompatible)
+**s'applique silencieusement, sans confirmation**, il ne bloquera jamais le
+déploiement mais peut faire perdre de la donnée si le changement l'exige.
+C'est justement pour ça que l'étape 8.1 (sauvegarde) n'est jamais
+optionnelle. Un ajout pur (nouvelle colonne, nouvelle valeur d'enum) est
+sans risque. Si les évolutions de schéma deviennent fréquentes ou plus
+risquées, migrer vers de vraies migrations Prisma (`prisma migrate`) plutôt
+que `db push`.
+
+### 8.6. Vérification
+
+```powershell
+curl http://127.0.0.1:4000/api/health
+```
+
+Puis dans le navigateur : connexion avec un compte existant, vérifier
+qu'une donnée déjà là (ticket, équipement...) s'affiche normalement, avant
+de considérer la mise à jour terminée.
 
 ---
 
