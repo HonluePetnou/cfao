@@ -84,6 +84,10 @@ export default function DashboardPage() {
 
   const isAdmin = user?.role === "SUPER_ADMIN";
   const isMaintenancier = user?.role === "MAINTENANCIER";
+  const isViewer = user?.role === "VIEWER";
+  // Le Viewer voit le meme dashboard multi-site que le Super Admin (lecture
+  // seule) - il doit donc avoir acces aux memes filtres (site, imputation).
+  const canFilterAllSites = isAdmin || isViewer;
 
   const loadGmao = useCallback((smId?: string, eqId?: string, debut?: string, fin?: string, imputation?: string) => {
     setGmaoLoading(true);
@@ -197,7 +201,7 @@ export default function DashboardPage() {
       {/* ── Filtres ── */}
       <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-slate-50 rounded-2xl border border-slate-100">
         <span className="text-[11px] font-semibold text-slate-500 mr-1">Filtres</span>
-        {isAdmin && (
+        {canFilterAllSites && (
           <div className="relative">
             <select value={filterSm} onChange={(e) => { setFilterSm(e.target.value); setFilterEq(""); }}
               className="text-xs border border-slate-200 rounded-xl pl-3 pr-7 py-1.5 appearance-none bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange/30">
@@ -217,7 +221,7 @@ export default function DashboardPage() {
             <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           </div>
         )}
-        {isAdmin && (
+        {canFilterAllSites && (
           <div className="relative">
             <select value={filterImputation} onChange={(e) => setFilterImputation(e.target.value)}
               className="text-xs border border-slate-200 rounded-xl pl-3 pr-7 py-1.5 appearance-none bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange/30">
@@ -576,9 +580,9 @@ export default function DashboardPage() {
       {/* ── Tickets récents ── */}
       <div className="card overflow-hidden">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-slate-700">{isAdmin ? "Tickets récents" : "Mes tickets"}</h2>
+          <h2 className="text-sm font-semibold text-slate-700">{isAdmin || isViewer ? "Tickets récents" : "Mes tickets"}</h2>
           <div className="flex items-center gap-2">
-            {!isAdmin && (
+            {!isAdmin && !isViewer && (
               <button onClick={() => router.push("/tickets/new")} className="btn-primary text-xs py-2 px-3">
                 <PlusCircle size={13} /> Nouveau
               </button>
