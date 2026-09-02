@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useConfirm } from "@/components/Confirm";
 import { useToast } from "@/components/Toast";
-import { Settings, PlusCircle, Loader2, Trash2, Check, X } from "lucide-react";
+import { Settings, PlusCircle, Loader2, Trash2, Check, X, Search } from "lucide-react";
 import { CORPS_ETAT_LIST } from "@/lib/constants";
 import Combobox from "@/components/Combobox";
 import SortIcon from "@/components/SortIcon";
@@ -22,6 +22,7 @@ export default function EquipementsPage() {
   const [loading, setLoading] = useState(true);
 
   const [filterLocalisation, setFilterLocalisation] = useState("");
+  const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const handleSort = (key: SortKey) => {
@@ -60,9 +61,17 @@ export default function EquipementsPage() {
     load();
   }, [load]);
 
-  const filteredData = filterLocalisation
-    ? data.filter((d) => d.localisationId === filterLocalisation)
-    : data;
+  const filteredData = data
+    .filter((d) => !filterLocalisation || d.localisationId === filterLocalisation)
+    .filter((d) => {
+      if (!search.trim()) return true;
+      const q = search.trim().toLowerCase();
+      return (
+        d.nom?.toLowerCase().includes(q) ||
+        d.localisation?.nom?.toLowerCase().includes(q) ||
+        d.corpsEtat?.toLowerCase().includes(q)
+      );
+    });
 
   const sortedData = useMemo(() => {
     if (!sortKey) return filteredData;
@@ -142,6 +151,16 @@ export default function EquipementsPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Rechercher un équipement..."
+                className="text-xs border border-slate-200 rounded-xl pl-7 pr-3 py-1.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange/30 w-48"
+              />
+            </div>
             <select
               value={filterLocalisation}
               onChange={(e) => setFilterLocalisation(e.target.value)}
@@ -261,7 +280,7 @@ export default function EquipementsPage() {
             <Settings size={44} className="mx-auto text-slate-200 mb-3" />
             <p className="text-slate-500 font-medium">Aucun équipement</p>
             <p className="text-slate-400 text-sm">
-              Aucun résultat pour cette localisation.
+              Aucun résultat pour {search.trim() ? "cette recherche" : "cette localisation"}.
             </p>
           </div>
         ) : (
