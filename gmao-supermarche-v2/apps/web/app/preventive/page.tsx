@@ -35,6 +35,7 @@ export default function PreventivePage() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   // Filters
+  const [filterSite, setFilterSite] = useState("");
   const [filterFrequence, setFilterFrequence] = useState("");
   const [filterDateDebutTaches, setFilterDateDebutTaches] = useState("");
   const [filterDateFinTaches, setFilterDateFinTaches] = useState("");
@@ -58,6 +59,7 @@ export default function PreventivePage() {
     intervalValue: 30,
     intervalUnit: "DAYS",
     assignedMaintenancierId: "",
+    prestataire: "",
     checklist: "",
     nextDate: new Date().toISOString().split("T")[0],
   });
@@ -87,8 +89,24 @@ export default function PreventivePage() {
     if (u.role === "USER") { router.replace("/demandeur"); return; }
     if (u.role === "MAINTENANCIER") { router.replace("/maintenancier"); return; }
     setUser(u);
+    setFilterSite(sessionStorage.getItem("gmao_current_supermarket") || u.supermarketId || "");
     loadData();
   }, [router, loadData]);
+
+  useEffect(() => {
+    const handleSupermarketChange = (event: Event) => {
+      const siteId = (event as CustomEvent<{ id: string }>).detail?.id || "";
+      setFilterSite(siteId);
+      setSelectedDate(null);
+      setPlanForm((current) => {
+        if (!current.equipmentId || !siteId) return current;
+        const selectedEquipment = equipments.find((equipment) => equipment.id === current.equipmentId);
+        return selectedEquipment?.supermarketId === siteId ? current : { ...current, equipmentId: "" };
+      });
+    };
+    window.addEventListener("gmao:supermarket-change", handleSupermarketChange);
+    return () => window.removeEventListener("gmao:supermarket-change", handleSupermarketChange);
+  }, [equipments]);
 
   // Actions
   const handleDone = async (id: string) => {
@@ -167,8 +185,35 @@ export default function PreventivePage() {
     }
   };
 
+  const equipmentById = useMemo(
+    () => new Map(equipments.map((equipment) => [equipment.id, equipment])),
+    [equipments],
+  );
+
+  const planMatchesSite = useCallback((plan: any) => {
+    if (!filterSite) return true;
+    return equipmentById.get(plan?.equipment?.id)?.supermarketId === filterSite;
+  }, [equipmentById, filterSite]);
+
+  const filteredTasks = useMemo(
+    () => tasks.filter((task) => planMatchesSite(task.plan)),
+    [tasks, planMatchesSite],
+  );
+
+  const filteredPlans = useMemo(
+    () => plans.filter(planMatchesSite),
+    [plans, planMatchesSite],
+  );
+
+  const availableEquipments = useMemo(
+    () => filterSite
+      ? equipments.filter((equipment) => equipment.supermarketId === filterSite)
+      : equipments,
+    [equipments, filterSite],
+  );
+
   const visiblePlans = useMemo(() => {
-    const filtered = plans.filter((p) => !filterFrequence || p.intervalUnit === filterFrequence);
+    const filtered = filteredPlans.filter((p) => !filterFrequence || p.intervalUnit === filterFrequence);
     if (!planSortKey) return filtered;
     const dir = planSortDir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
@@ -182,7 +227,7 @@ export default function PreventivePage() {
       const bTime = new Date(b.nextDate).getTime();
       return (aTime - bTime) * dir;
     });
-  }, [plans, filterFrequence, planSortKey, planSortDir]);
+  }, [filteredPlans, filterFrequence, planSortKey, planSortDir]);
 
   const PlanSortIcon = ({ column }: { column: PlanSortKey }) => {
     if (planSortKey !== column) return <ChevronsUpDown size={11} className="text-slate-300" />;
@@ -261,7 +306,7 @@ export default function PreventivePage() {
   const previousMonthDays = Array.from({ length: firstDayOfMonth }, (_, i) => i);
 
   const getTasksForDate = (year: number, month: number, day: number) => {
-    return tasks.filter((t) => {
+    return filteredTasks.filter((t) => {
       const d = new Date(t.dueDate);
       return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
     });
@@ -269,14 +314,14 @@ export default function PreventivePage() {
   const selectedDateTasks = selectedDate ? getTasksForDate(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate()) : [];
 
   const stats = useMemo(() => {
-    const real = tasks.filter((t) => !t.isProjected);
+    const real = filteredTasks.filter((t) => !t.isProjected);
     return {
       total: real.length,
       late:  real.filter((t) => t.status === "EN_RETARD" || (t.status === "PLANIFIE" && new Date(t.dueDate) < new Date())).length,
       done:  real.filter((t) => t.status === "EFFECTUE").length,
-      activePlans: plans.filter((p) => p.active).length,
+      activePlans: filteredPlans.filter((p) => p.active).length,
     };
-  }, [tasks, plans]);
+  }, [filteredTasks, filteredPlans]);
 
   if (loading) {
     return (
@@ -289,6 +334,10 @@ export default function PreventivePage() {
   }
 
   const isAdmin = user?.role === "SUPER_ADMIN";
+  // Viewer : peut consulter l'onglet "Gestion des Plans" (lecture seule),
+  // mais pas créer/modifier/supprimer — ces actions restent isAdmin uniquement.
+  const isViewer = user?.role === "VIEWER";
+  const canSeePlans = isAdmin || isViewer;
 
   return (
     <Shell title="Maintenance préventive" subtitle="Planification et suivi des interventions régulières">
@@ -319,7 +368,7 @@ export default function PreventivePage() {
           className={`pb-2.5 px-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap ${activeTab === "calendar" ? "border-orange text-orange" : "border-transparent text-slate-500 hover:text-slate-700"}`}>
           Calendrier Annuel
         </button>
-        {isAdmin && (
+        {canSeePlans && (
           <button onClick={() => setActiveTab("plans")}
             className={`pb-2.5 px-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap ${activeTab === "plans" ? "border-orange text-orange" : "border-transparent text-slate-500 hover:text-slate-700"}`}>
             Gestion des Plans
@@ -450,7 +499,7 @@ export default function PreventivePage() {
       )}
 
       {/* Onglet 2: GESTION DES PLANS */}
-      {activeTab === "plans" && isAdmin && (
+      {activeTab === "plans" && canSeePlans && (
         <div className="card overflow-hidden">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xs font-bold text-slate-700">Plans de maintenance active</h3>
@@ -463,9 +512,11 @@ export default function PreventivePage() {
                 <option value="MONTHS">Mois</option>
                 <option value="YEARS">Années</option>
               </select>
-              <button onClick={handleOpenCreateModal} className="btn-primary text-xs py-1.5 px-3">
-                <PlusCircle size={13} /> Nouveau Plan
-              </button>
+              {isAdmin && (
+                <button onClick={handleOpenCreateModal} className="btn-primary text-xs py-1.5 px-3">
+                  <PlusCircle size={13} /> Nouveau Plan
+                </button>
+              )}
             </div>
           </div>
           <table className="w-full text-xs">
@@ -479,7 +530,7 @@ export default function PreventivePage() {
                   <span className="inline-flex items-center gap-1">Prochaine Échéance <PlanSortIcon column="echeance" /></span>
                 </th>
                 <th className="text-center pb-2 font-semibold w-16">Statut</th>
-                <th className="text-right pb-2 font-semibold w-24">Actions</th>
+                {isAdmin && <th className="text-right pb-2 font-semibold w-24">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -496,18 +547,26 @@ export default function PreventivePage() {
                     {new Date(p.nextDate).toLocaleDateString("fr-FR")}
                   </td>
                   <td className="py-2.5 text-center">
-                    <button onClick={() => handlePlanToggle(p)} className="mx-auto block text-slate-400 hover:text-slate-600">
-                      {p.active ? <ToggleRight size={22} className="text-orange" /> : <ToggleLeft size={22} />}
-                    </button>
+                    {isAdmin ? (
+                      <button onClick={() => handlePlanToggle(p)} className="mx-auto block text-slate-400 hover:text-slate-600">
+                        {p.active ? <ToggleRight size={22} className="text-orange" /> : <ToggleLeft size={22} />}
+                      </button>
+                    ) : (
+                      <span className={`inline-block ${p.active ? "text-orange" : "text-slate-300"}`}>
+                        {p.active ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
+                      </span>
+                    )}
                   </td>
-                  <td className="py-2.5 text-right space-x-1.5">
-                    <button onClick={() => handleOpenEditModal(p)} className="p-1 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors inline-block">
-                      <Edit2 size={12} />
-                    </button>
-                    <button onClick={() => handlePlanDelete(p.id)} className="p-1 rounded-lg hover:bg-red-50 text-red-500 transition-colors inline-block">
-                      <Trash2 size={12} />
-                    </button>
-                  </td>
+                  {isAdmin && (
+                    <td className="py-2.5 text-right space-x-1.5">
+                      <button onClick={() => handleOpenEditModal(p)} className="p-1 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors inline-block">
+                        <Edit2 size={12} />
+                      </button>
+                      <button onClick={() => handlePlanDelete(p.id)} className="p-1 rounded-lg hover:bg-red-50 text-red-500 transition-colors inline-block">
+                        <Trash2 size={12} />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
               {visiblePlans.length === 0 && (
@@ -534,7 +593,7 @@ export default function PreventivePage() {
             </div>
           </div>
           <div className="space-y-3">
-            {tasks.filter((t) => {
+            {filteredTasks.filter((t) => {
               if (t.isProjected) return false;
               if (filterDateDebutTaches && new Date(t.dueDate) < new Date(filterDateDebutTaches)) return false;
               if (filterDateFinTaches) {
@@ -586,10 +645,10 @@ export default function PreventivePage() {
                 </div>
               );
             })}
-            {tasks.filter((t) => !t.isProjected).length === 0 && (
+            {filteredTasks.filter((t) => !t.isProjected).length === 0 && (
               <p className="text-center py-10 text-slate-400">Aucune tâche générée</p>
             )}
-            {tasks.filter((t) => !t.isProjected).length > 0 && tasks.filter((t) => {
+            {filteredTasks.filter((t) => !t.isProjected).length > 0 && filteredTasks.filter((t) => {
               if (t.isProjected) return false;
               if (filterDateDebutTaches && new Date(t.dueDate) < new Date(filterDateDebutTaches)) return false;
               if (filterDateFinTaches) {
@@ -626,8 +685,15 @@ export default function PreventivePage() {
                 <label className="block text-[10px] font-bold uppercase tracking-wider text-navy mb-1">Équipement concerné <span className="text-orange">*</span></label>
                 <select required value={planForm.equipmentId} onChange={(e) => setPlanForm({ ...planForm, equipmentId: e.target.value })} className="select text-xs">
                   <option value="">Sélectionner un équipement...</option>
-                  {equipments.map((eq: any) => <option key={eq.id} value={eq.id}>{eq.nom} ({eq.corpsEtat})</option>)}
+                  {availableEquipments.map((eq: any) => (
+                    <option key={eq.id} value={eq.id}>
+                      {eq.nom}{!filterSite && eq.supermarket?.nom ? ` — ${eq.supermarket.nom}` : ""} ({eq.corpsEtat || "Sans corps d'état"})
+                    </option>
+                  ))}
                 </select>
+                {filterSite && availableEquipments.length === 0 && (
+                  <p className="mt-1 text-[10px] text-orange text-pretty">Aucun équipement actif n’est disponible pour ce site.</p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">

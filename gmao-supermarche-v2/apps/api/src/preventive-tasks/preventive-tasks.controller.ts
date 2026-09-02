@@ -17,7 +17,7 @@ export class PreventiveTasksController {
 
   @Get("projected")
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("SUPER_ADMIN", "MAINTENANCIER")
+  @Roles("SUPER_ADMIN", "MAINTENANCIER", "VIEWER")
   findAllProjected() {
     return this.service.findAllProjected();
   }

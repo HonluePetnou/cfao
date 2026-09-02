@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { Users, PlusCircle, Loader2, Trash2, Check, X, Eye, EyeOff, KeyRound } from "lucide-react";
 
 const ROLE_LABEL: Record<string, string> = {
-  SUPER_ADMIN: "Super Admin", MAINTENANCIER: "Maintenancier", USER: "Demandeur",
+  SUPER_ADMIN: "Super Admin", MAINTENANCIER: "Maintenancier", USER: "Demandeur", VIEWER: "Lecteur",
 };
 
 export default function UtilisateursPage() {

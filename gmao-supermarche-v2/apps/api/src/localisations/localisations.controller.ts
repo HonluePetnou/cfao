@@ -10,11 +10,11 @@ export class LocalisationsController {
   constructor(private service: LocalisationsService) {}
 
   @Get()
-  @Roles("SUPER_ADMIN", "MAINTENANCIER", "USER")
+  @Roles("SUPER_ADMIN", "MAINTENANCIER", "USER", "VIEWER")
   findAll(@Query("supermarketId") supermarketId?: string) { return this.service.findAll(supermarketId); }
 
   @Get(":id")
-  @Roles("SUPER_ADMIN", "MAINTENANCIER", "USER")
+  @Roles("SUPER_ADMIN", "MAINTENANCIER", "USER", "VIEWER")
   findById(@Param("id") id: string) { return this.service.findById(id); }
 
   @Post()

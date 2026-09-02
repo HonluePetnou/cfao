@@ -10,11 +10,11 @@ export class PreventivePlansController {
   constructor(private service: PreventivePlansService) {}
 
   @Get()
-  @Roles("SUPER_ADMIN", "MAINTENANCIER")
+  @Roles("SUPER_ADMIN", "MAINTENANCIER", "VIEWER")
   findAll() { return this.service.findAll(); }
 
   @Get(":id")
-  @Roles("SUPER_ADMIN", "MAINTENANCIER")
+  @Roles("SUPER_ADMIN", "MAINTENANCIER", "VIEWER")
   findById(@Param("id") id: string) { return this.service.findById(id); }
 
   @Post()

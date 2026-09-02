@@ -13,6 +13,7 @@ const roleLabel: Record<string, string> = {
   SUPER_ADMIN: "Administrateur",
   MAINTENANCIER: "Maintenancier",
   USER: "Demandeur",
+  VIEWER: "Lecteur",
 };
 
 export default function TopBar({ title, subtitle, notifCount = 0, collapsed }: TopBarProps & { collapsed?: boolean }) {
@@ -54,6 +55,7 @@ export default function TopBar({ title, subtitle, notifCount = 0, collapsed }: T
       if (matched) {
         sessionStorage.setItem("gmao_current_supermarket", matched.id);
         setCurrent(matched);
+        window.dispatchEvent(new CustomEvent("gmao:supermarket-change", { detail: { id: matched.id } }));
       }
     } catch {}
   };
@@ -61,6 +63,7 @@ export default function TopBar({ title, subtitle, notifCount = 0, collapsed }: T
   const switchSupermarket = (s: any) => {
     sessionStorage.setItem("gmao_current_supermarket", s.id);
     setCurrent(s);
+    window.dispatchEvent(new CustomEvent("gmao:supermarket-change", { detail: { id: s.id } }));
     setOpen(false);
     window.location.reload();
   };

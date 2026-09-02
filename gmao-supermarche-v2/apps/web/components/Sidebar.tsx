@@ -53,6 +53,32 @@ const SECTIONS: Record<string, { label: string; items: { label: string; href: st
       ],
     },
   ],
+  // Lecture seule : visibilité complète sur l'activité (comme SUPER_ADMIN),
+  // mais sans "Utilisateurs" (gestion de comptes) ni "Paramètres" (config
+  // système) - ce sont des actions d'administration, pas de la visualisation.
+  VIEWER: [
+    {
+      label: "GESTION",
+      items: [
+        { label: "Localisations", href: "/localisations", icon: Layers },
+        { label: "Équipements", href: "/equipements", icon: Settings },
+        { label: "Plans préventifs", href: "/preventive", icon: ShieldCheck },
+      ],
+    },
+    {
+      label: "MAINTENANCE",
+      items: [
+        { label: "Tickets", href: "/tickets", icon: Ticket },
+      ],
+    },
+    {
+      label: "SUIVI",
+      items: [
+        { label: "Journaux", href: "/admin/journaux", icon: FileText },
+        { label: "Rondes", href: "/admin/rondes", icon: ClipboardList },
+      ],
+    },
+  ],
 };
 
 interface SidebarProps {

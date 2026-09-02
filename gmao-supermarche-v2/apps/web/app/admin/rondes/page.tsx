@@ -21,6 +21,8 @@ export default function RondesPage() {
   const { success, error: toastError, info } = useToast();
 
   const [user, setUser] = useState<any>(null);
+  // Rôle Viewer : accès en lecture seule, ne peut pas signer/supprimer une ronde.
+  const isViewer = user?.role === "VIEWER";
   const [supermarkets, setSupermarkets] = useState<any[]>([]);
   const [selectedSmId, setSelectedSmId] = useState("");
   const [loading, setLoading] = useState(true);
@@ -199,13 +201,15 @@ export default function RondesPage() {
               {supermarkets.map(sm => <option key={sm.id} value={sm.id}>{sm.nom}</option>)}
             </select>
           </div>
-          <button
-            onClick={() => setShowConfig(v => !v)}
-            className="flex items-center gap-2 bg-navy/5 hover:bg-navy/10 text-navy text-xs font-bold px-4 py-2.5 rounded-xl border border-navy/10 transition-colors"
-          >
-            <Settings size={14} />
-            {showConfig ? "Masquer config" : "Configurer les zones"}
-          </button>
+          {!isViewer && (
+            <button
+              onClick={() => setShowConfig(v => !v)}
+              className="flex items-center gap-2 bg-navy/5 hover:bg-navy/10 text-navy text-xs font-bold px-4 py-2.5 rounded-xl border border-navy/10 transition-colors"
+            >
+              <Settings size={14} />
+              {showConfig ? "Masquer config" : "Configurer les zones"}
+            </button>
+          )}
         </div>
 
         {/* ─── Config Editor ─── */}
@@ -350,33 +354,41 @@ export default function RondesPage() {
                       <div className="hidden sm:flex items-center gap-1">
                         {r.signatureTechnicien
                           ? <span className="text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><ShieldCheck size={9} />Tech</span>
-                          : <button onClick={() => handleSign(r.id, "technicien")} disabled={signing === `${r.id}-technicien`} className="text-[9px] font-bold bg-slate-100 hover:bg-orange/10 hover:text-orange text-slate-500 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 transition-colors">
-                              <PenLine size={9} />Tech
-                            </button>
+                          : isViewer
+                            ? <span className="text-[9px] font-bold bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full">Tech</span>
+                            : <button onClick={() => handleSign(r.id, "technicien")} disabled={signing === `${r.id}-technicien`} className="text-[9px] font-bold bg-slate-100 hover:bg-orange/10 hover:text-orange text-slate-500 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 transition-colors">
+                                <PenLine size={9} />Tech
+                              </button>
                         }
                         {r.signaturePermanent
                           ? <span className="text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-100 px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><ShieldCheck size={9} />Perm.</span>
-                          : <button onClick={() => handleSign(r.id, "permanent")} disabled={signing === `${r.id}-permanent`} className="text-[9px] font-bold bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-500 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 transition-colors">
-                              <PenLine size={9} />Perm.
-                            </button>
+                          : isViewer
+                            ? <span className="text-[9px] font-bold bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full">Perm.</span>
+                            : <button onClick={() => handleSign(r.id, "permanent")} disabled={signing === `${r.id}-permanent`} className="text-[9px] font-bold bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-500 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 transition-colors">
+                                <PenLine size={9} />Perm.
+                              </button>
                         }
                         {r.signatureDM
                           ? <span className="text-[9px] font-bold bg-navy/10 text-navy border border-navy/10 px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><ShieldCheck size={9} />DM</span>
-                          : <button onClick={() => handleSign(r.id, "dm")} disabled={signing === `${r.id}-dm`} className="text-[9px] font-bold bg-slate-100 hover:bg-navy/10 hover:text-navy text-slate-500 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 transition-colors">
-                              <PenLine size={9} />DM
-                            </button>
+                          : isViewer
+                            ? <span className="text-[9px] font-bold bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full">DM</span>
+                            : <button onClick={() => handleSign(r.id, "dm")} disabled={signing === `${r.id}-dm`} className="text-[9px] font-bold bg-slate-100 hover:bg-navy/10 hover:text-navy text-slate-500 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 transition-colors">
+                                <PenLine size={9} />DM
+                              </button>
                         }
                       </div>
                       <button onClick={() => setExpandedId(isExpanded ? null : r.id)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors">
                         {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                       </button>
-                      <button
-                        onClick={() => handleDelete(r.id)}
-                        disabled={deletingId === r.id}
-                        className="p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors"
-                      >
-                        {deletingId === r.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                      </button>
+                      {!isViewer && (
+                        <button
+                          onClick={() => handleDelete(r.id)}
+                          disabled={deletingId === r.id}
+                          className="p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors"
+                        >
+                          {deletingId === r.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -390,7 +402,9 @@ export default function RondesPage() {
                           const label = role === "technicien" ? "Tech." : role === "permanent" ? "Perm." : "DM";
                           return r[key]
                             ? <span key={role} className="text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-1 rounded-full flex items-center gap-1"><ShieldCheck size={10} />{label} · {r[key]}</span>
-                            : <button key={role} onClick={() => handleSign(r.id, role as any)} className="text-[10px] font-bold bg-orange text-white px-2 py-1 rounded-full flex items-center gap-1"><PenLine size={10} />Signer {label}</button>;
+                            : isViewer
+                              ? <span key={role} className="text-[10px] font-bold bg-slate-100 text-slate-400 px-2 py-1 rounded-full">Non signé · {label}</span>
+                              : <button key={role} onClick={() => handleSign(r.id, role as any)} className="text-[10px] font-bold bg-orange text-white px-2 py-1 rounded-full flex items-center gap-1"><PenLine size={10} />Signer {label}</button>;
                         })}
                       </div>
 

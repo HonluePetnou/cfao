@@ -37,6 +37,7 @@ export default function TicketsPage() {
   const [search, setSearch] = useState("");
   const [sortByPriority, setSortByPriority] = useState(true);
   const [filterType, setFilterType] = useState<"all" | "curative" | "preventive">("all");
+  const [filterMaintenancier, setFilterMaintenancier] = useState("");
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
@@ -62,15 +63,32 @@ export default function TicketsPage() {
     }
   }, [router]);
 
+  const maintenanciers = useMemo(() => {
+    const byId = new Map<string, string>();
+    tickets.forEach((ticket) => {
+      if (ticket.assignedMaintenancier?.id) {
+        byId.set(ticket.assignedMaintenancier.id, ticket.assignedMaintenancier.nom);
+      }
+    });
+    return Array.from(byId, ([id, nom]) => ({ id, nom })).sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
+  }, [tickets]);
+
+  const maintenancierTickets = useMemo(
+    () => filterMaintenancier
+      ? tickets.filter((ticket) => ticket.assignedMaintenancier?.id === filterMaintenancier)
+      : tickets,
+    [tickets, filterMaintenancier],
+  );
+
   const counts = useMemo(() => ({
-    urgent:     tickets.filter((t) => t.priority === "CRITIQUE" && t.status !== "FERME").length,
-    waiting:    tickets.filter((t) => t.status === "ASSIGNE").length,
-    inProgress: tickets.filter((t) => t.status === "EN_COURS").length,
-    done:       tickets.filter((t) => t.status === "TERMINE").length,
-  }), [tickets]);
+    urgent:     maintenancierTickets.filter((t) => t.priority === "CRITIQUE" && t.status !== "FERME").length,
+    waiting:    maintenancierTickets.filter((t) => t.status === "ASSIGNE").length,
+    inProgress: maintenancierTickets.filter((t) => t.status === "EN_COURS").length,
+    done:       maintenancierTickets.filter((t) => t.status === "TERMINE").length,
+  }), [maintenancierTickets]);
 
   const filtered = useMemo(() => {
-    let list = [...tickets];
+    let list = [...maintenancierTickets];
     if (filterType === "preventive") list = list.filter((t) => t.typeTravaux?.toLowerCase().includes("préventive"));
     else if (filterType === "curative") list = list.filter((t) => t.typeTravaux && !t.typeTravaux.toLowerCase().includes("préventive"));
     const tab = TABS.find((t) => t.key === activeTab);
@@ -88,7 +106,7 @@ export default function TicketsPage() {
     }
     if (sortByPriority) list.sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 9) - (PRIORITY_ORDER[b.priority] ?? 9));
     return list;
-  }, [tickets, activeTab, search, sortByPriority, filterType]);
+  }, [maintenancierTickets, activeTab, search, sortByPriority, filterType]);
 
   return (
     <Shell title="Tickets" subtitle={user?.role === "USER" ? "Mon historique" : "Gestion des bons de travail"}>
@@ -112,6 +130,18 @@ export default function TicketsPage() {
             <Search size={15} className="text-slate-400 shrink-0" />
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher..." className="flex-1 py-2 text-sm text-slate-700 bg-transparent outline-none placeholder:text-slate-300" />
           </div>
+          <label className="sr-only" htmlFor="ticket-maintainer-filter">Bilan par maintenancier</label>
+          <select
+            id="ticket-maintainer-filter"
+            value={filterMaintenancier}
+            onChange={(e) => setFilterMaintenancier(e.target.value)}
+            className="select text-xs sm:max-w-56"
+          >
+            <option value="">Tous les maintenanciers</option>
+            {maintenanciers.map((maintenancier) => (
+              <option key={maintenancier.id} value={maintenancier.id}>{maintenancier.nom}</option>
+            ))}
+          </select>
           {user?.role === "MAINTENANCIER" && (
             <div className="flex rounded-xl border border-slate-200 overflow-hidden">
               {(["all", "curative", "preventive"] as const).map((t) => (
@@ -126,7 +156,9 @@ export default function TicketsPage() {
               <Filter size={14} /> {sortByPriority ? "Trié" : "Trier"}
             </button>
           )}
-          <button onClick={() => router.push("/tickets/new")} className="btn-primary"><PlusCircle size={15} /> Nouveau ticket</button>
+          {user?.role !== "VIEWER" && (
+            <button onClick={() => router.push("/tickets/new")} className="btn-primary"><PlusCircle size={15} /> Nouveau ticket</button>
+          )}
         </div>
 
         <div className="flex gap-1 mt-4 overflow-x-auto pb-1">

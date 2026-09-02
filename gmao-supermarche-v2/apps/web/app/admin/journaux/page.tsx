@@ -17,6 +17,8 @@ export default function JournauxPage() {
   const { success, error: toastError, warning } = useToast();
 
   const [user, setUser] = useState<any>(null);
+  // Rôle Viewer : accès en lecture seule, aucune action de génération/signature/édition/suppression.
+  const isViewer = user?.role === "VIEWER";
   const [reports, setReports] = useState<any[]>([]);
   const [maintenanciers, setMaintenanciers] = useState<any[]>([]);
   const [loadingRep, setLoadingRep] = useState(true);
@@ -168,6 +170,8 @@ export default function JournauxPage() {
 
   return (
     <Shell title="Journaux" subtitle="Rapports d activites journalieres">
+      {!isViewer && (
+      <>
       {/* Generation automatique */}
       <div className="card mb-5">
         <h3 className="text-sm font-bold text-navy flex items-center gap-2 mb-3">
@@ -221,6 +225,8 @@ export default function JournauxPage() {
           </button>
         </div>
       </div>
+      </>
+      )}
 
       {/* Liste des rapports */}
       <div className="card">
@@ -231,10 +237,12 @@ export default function JournauxPage() {
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">{reports.length} rapport{reports.length !== 1 ? "s" : ""}</p>
           </div>
-          <button onClick={() => { setShowRepForm(!showRepForm); if (!showRepForm) resetRepForm(); }} className="btn-primary">
-            {showRepForm ? <X size={15} /> : <Notebook size={15} />}
-            {showRepForm ? "Fermer" : "Nouveau manuel"}
-          </button>
+          {!isViewer && (
+            <button onClick={() => { setShowRepForm(!showRepForm); if (!showRepForm) resetRepForm(); }} className="btn-primary">
+              {showRepForm ? <X size={15} /> : <Notebook size={15} />}
+              {showRepForm ? "Fermer" : "Nouveau manuel"}
+            </button>
+          )}
         </div>
 
         {/* Filtres */}
@@ -355,6 +363,10 @@ export default function JournauxPage() {
                         <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full" title={r.managerMaintenance || ""}>
                           <ShieldCheck size={11} /> Signe
                         </span>
+                      ) : isViewer ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-slate-400 bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-full">
+                          <ShieldAlert size={11} /> En attente
+                        </span>
                       ) : (
                         <button
                           disabled={signing === r.id}
@@ -371,12 +383,16 @@ export default function JournauxPage() {
                         <button onClick={() => handleExportPdf(r)} className="p-1.5 rounded-lg hover:bg-orange-50 text-slate-400 hover:text-orange-600 transition-colors" title="Export PDF">
                           <FileDown size={14} />
                         </button>
-                        <button onClick={() => openEditRep(r)} className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-colors" title="Modifier">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-                        </button>
-                        <button onClick={() => handleRepDelete(r.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors" title="Supprimer">
-                          <Trash2 size={14} />
-                        </button>
+                        {!isViewer && (
+                          <>
+                            <button onClick={() => openEditRep(r)} className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-colors" title="Modifier">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                            </button>
+                            <button onClick={() => handleRepDelete(r.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors" title="Supprimer">
+                              <Trash2 size={14} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

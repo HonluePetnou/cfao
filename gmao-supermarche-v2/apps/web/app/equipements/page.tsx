@@ -17,6 +17,9 @@ export default function EquipementsPage() {
   const router = useRouter();
   const confirm = useConfirm();
   const { success, error: toastError } = useToast();
+  // Rôle Viewer : accès en lecture seule, pas d'actions de création/édition/suppression.
+  const currentUser = typeof window !== "undefined" ? JSON.parse(sessionStorage.getItem("gmao_user") || "null") : null;
+  const isViewer = currentUser?.role === "VIEWER";
   const [data, setData] = useState<any[]>([]);
   const [localisations, setLocalisations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -173,17 +176,19 @@ export default function EquipementsPage() {
                 </option>
               ))}
             </select>
-            <button
-              onClick={() => {
-                setShowForm(!showForm);
-                setEditId(null);
-                setForm({});
-              }}
-              className="btn-primary"
-            >
-              {showForm ? <X size={15} /> : <PlusCircle size={15} />}
-              {showForm ? "Fermer" : "Ajouter"}
-            </button>
+            {!isViewer && (
+              <button
+                onClick={() => {
+                  setShowForm(!showForm);
+                  setEditId(null);
+                  setForm({});
+                }}
+                className="btn-primary"
+              >
+                {showForm ? <X size={15} /> : <PlusCircle size={15} />}
+                {showForm ? "Fermer" : "Ajouter"}
+              </button>
+            )}
           </div>
         </div>
 
@@ -300,7 +305,7 @@ export default function EquipementsPage() {
                   <th className="text-left text-[10px] font-bold uppercase tracking-wider text-slate-400 pb-3 pr-4 cursor-pointer select-none hover:text-slate-600" onClick={() => handleSort("criticite")}>
                     <span className="inline-flex items-center gap-1">Criticité <SortIcon active={sortKey === "criticite"} dir={sortDir} /></span>
                   </th>
-                  <th className="w-20" />
+                  {!isViewer && <th className="w-20" />}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -336,34 +341,36 @@ export default function EquipementsPage() {
                         "—"
                       )}
                     </td>
-                    <td className="py-3">
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => startEdit(row)}
-                          className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-colors"
-                          title="Modifier"
-                        >
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
+                    {!isViewer && (
+                      <td className="py-3">
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => startEdit(row)}
+                            className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-colors"
+                            title="Modifier"
                           >
-                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                            <path d="m15 5 4 4" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDelete(row.id)}
-                          className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
-                          title="Supprimer"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
+                              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                              <path d="m15 5 4 4" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDelete(row.id)}
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
+                            title="Supprimer"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

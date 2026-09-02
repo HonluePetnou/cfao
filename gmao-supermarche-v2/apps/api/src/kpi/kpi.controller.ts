@@ -10,11 +10,11 @@ export class KpiController {
   constructor(private service: KpiService) {}
 
   @Get()
-  @Roles("SUPER_ADMIN", "MAINTENANCIER", "USER")
+  @Roles("SUPER_ADMIN", "MAINTENANCIER", "USER", "VIEWER")
   getKpi() { return this.service.compute(); }
 
   @Get("gmao")
-  @Roles("SUPER_ADMIN", "MAINTENANCIER")
+  @Roles("SUPER_ADMIN", "MAINTENANCIER", "VIEWER")
   getGmaoKpis(
     @Query("supermarketId") supermarketId?: string,
     @Query("equipmentId") equipmentId?: string,

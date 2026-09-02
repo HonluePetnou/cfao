@@ -11,7 +11,7 @@ export class ExportController {
   constructor(private service: ExportService) {}
 
   @Get("xlsx")
-  @Roles("SUPER_ADMIN")
+  @Roles("SUPER_ADMIN", "VIEWER")
   async exportXlsx(
     @Res() res: Response,
     @Query("from") from?: string,
@@ -25,7 +25,7 @@ export class ExportController {
   }
 
   @Get("pdf")
-  @Roles("SUPER_ADMIN")
+  @Roles("SUPER_ADMIN", "VIEWER")
   @Header("Content-Type", "application/pdf")
   async exportPdf(
     @Res() res: Response,
