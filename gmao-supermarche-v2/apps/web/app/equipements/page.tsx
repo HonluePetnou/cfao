@@ -1,6 +1,6 @@
 "use client";
 import Shell from "@/components/Shell";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useConfirm } from "@/components/Confirm";
@@ -8,6 +8,10 @@ import { useToast } from "@/components/Toast";
 import { Settings, PlusCircle, Loader2, Trash2, Check, X } from "lucide-react";
 import { CORPS_ETAT_LIST } from "@/lib/constants";
 import Combobox from "@/components/Combobox";
+import SortIcon from "@/components/SortIcon";
+import { compareValues, compareCriticite, type SortDir } from "@/lib/sort";
+
+type SortKey = "nom" | "localisation" | "corpsEtat" | "criticite";
 
 export default function EquipementsPage() {
   const router = useRouter();
@@ -18,6 +22,12 @@ export default function EquipementsPage() {
   const [loading, setLoading] = useState(true);
 
   const [filterLocalisation, setFilterLocalisation] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  };
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
@@ -53,6 +63,17 @@ export default function EquipementsPage() {
   const filteredData = filterLocalisation
     ? data.filter((d) => d.localisationId === filterLocalisation)
     : data;
+
+  const sortedData = useMemo(() => {
+    if (!sortKey) return filteredData;
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...filteredData].sort((a, b) => {
+      if (sortKey === "criticite") return compareCriticite(a.criticite, b.criticite) * dir;
+      const va = sortKey === "nom" ? a.nom : sortKey === "localisation" ? a.localisation?.nom : a.corpsEtat;
+      const vb = sortKey === "nom" ? b.nom : sortKey === "localisation" ? b.localisation?.nom : b.corpsEtat;
+      return compareValues(va, vb) * dir;
+    });
+  }, [filteredData, sortKey, sortDir]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -248,23 +269,23 @@ export default function EquipementsPage() {
             <table className="w-full text-sm min-w-[600px]">
               <thead>
                 <tr className="border-b border-slate-100">
-                  <th className="text-left text-[10px] font-bold uppercase tracking-wider text-slate-400 pb-3 pr-4 first:pl-1">
-                    Nom
+                  <th className="text-left text-[10px] font-bold uppercase tracking-wider text-slate-400 pb-3 pr-4 first:pl-1 cursor-pointer select-none hover:text-slate-600" onClick={() => handleSort("nom")}>
+                    <span className="inline-flex items-center gap-1">Nom <SortIcon active={sortKey === "nom"} dir={sortDir} /></span>
                   </th>
-                  <th className="text-left text-[10px] font-bold uppercase tracking-wider text-slate-400 pb-3 pr-4">
-                    Localisation
+                  <th className="text-left text-[10px] font-bold uppercase tracking-wider text-slate-400 pb-3 pr-4 cursor-pointer select-none hover:text-slate-600" onClick={() => handleSort("localisation")}>
+                    <span className="inline-flex items-center gap-1">Localisation <SortIcon active={sortKey === "localisation"} dir={sortDir} /></span>
                   </th>
-                  <th className="text-left text-[10px] font-bold uppercase tracking-wider text-slate-400 pb-3 pr-4">
-                    Corps d'état
+                  <th className="text-left text-[10px] font-bold uppercase tracking-wider text-slate-400 pb-3 pr-4 cursor-pointer select-none hover:text-slate-600" onClick={() => handleSort("corpsEtat")}>
+                    <span className="inline-flex items-center gap-1">Corps d'état <SortIcon active={sortKey === "corpsEtat"} dir={sortDir} /></span>
                   </th>
-                  <th className="text-left text-[10px] font-bold uppercase tracking-wider text-slate-400 pb-3 pr-4">
-                    Criticité
+                  <th className="text-left text-[10px] font-bold uppercase tracking-wider text-slate-400 pb-3 pr-4 cursor-pointer select-none hover:text-slate-600" onClick={() => handleSort("criticite")}>
+                    <span className="inline-flex items-center gap-1">Criticité <SortIcon active={sortKey === "criticite"} dir={sortDir} /></span>
                   </th>
                   <th className="w-20" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filteredData.map((row) => (
+                {sortedData.map((row) => (
                   <tr
                     key={row.id}
                     className="hover:bg-slate-50 transition-colors group"

@@ -1,11 +1,15 @@
 "use client";
 import Shell from "@/components/Shell";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useConfirm } from "@/components/Confirm";
 import { useToast } from "@/components/Toast";
 import { Layers, PlusCircle, Loader2, Trash2, Check, X } from "lucide-react";
+import SortIcon from "@/components/SortIcon";
+import { compareValues, type SortDir } from "@/lib/sort";
+
+type SortKey = "nom" | "supermarket";
 
 export default function LocalisationsPage() {
   const router = useRouter();
@@ -13,6 +17,13 @@ export default function LocalisationsPage() {
   const { success, error: toastError } = useToast();
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  };
 
   /* ── Form ── */
   const [showForm, setShowForm] = useState(false);
@@ -84,6 +95,16 @@ export default function LocalisationsPage() {
     setShowForm(true);
   };
 
+  const sortedData = useMemo(() => {
+    if (!sortKey) return data;
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...data].sort((a, b) => {
+      const va = sortKey === "nom" ? a.nom : a.supermarket?.nom;
+      const vb = sortKey === "nom" ? b.nom : b.supermarket?.nom;
+      return compareValues(va, vb) * dir;
+    });
+  }, [data, sortKey, sortDir]);
+
   return (
     <Shell title="Localisations" subtitle="Gestion des localisations par supermarché">
       <div className="card">
@@ -141,13 +162,17 @@ export default function LocalisationsPage() {
             <table className="w-full text-sm min-w-[400px]">
               <thead>
                 <tr className="border-b border-slate-100">
-                  <th className="text-left text-[10px] font-bold uppercase tracking-wider text-slate-400 pb-3 pr-4 first:pl-1">Nom</th>
-                  <th className="text-left text-[10px] font-bold uppercase tracking-wider text-slate-400 pb-3 pr-4">Supermarché</th>
+                  <th className="text-left text-[10px] font-bold uppercase tracking-wider text-slate-400 pb-3 pr-4 first:pl-1 cursor-pointer select-none hover:text-slate-600" onClick={() => handleSort("nom")}>
+                    <span className="inline-flex items-center gap-1">Nom <SortIcon active={sortKey === "nom"} dir={sortDir} /></span>
+                  </th>
+                  <th className="text-left text-[10px] font-bold uppercase tracking-wider text-slate-400 pb-3 pr-4 cursor-pointer select-none hover:text-slate-600" onClick={() => handleSort("supermarket")}>
+                    <span className="inline-flex items-center gap-1">Supermarché <SortIcon active={sortKey === "supermarket"} dir={sortDir} /></span>
+                  </th>
                   <th className="w-20" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {data.map((row) => (
+                {sortedData.map((row) => (
                   <tr key={row.id} className="hover:bg-slate-50 transition-colors group">
                     <td className="py-3 pr-4 first:pl-1 text-slate-700 font-medium">{row.nom}</td>
                     <td className="py-3 pr-4 text-slate-500">{row.supermarket?.nom || "—"}</td>
