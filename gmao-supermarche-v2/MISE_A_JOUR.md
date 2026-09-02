@@ -11,11 +11,19 @@ Deux dossiers sur le serveur : **"nouveau"** (le clone git, à jour) et
 
 ## 1. Sauvegarde — jamais sauter cette étape
 
-Dans le dossier **ancien** :
+Dans le dossier **ancien**, en PowerShell (pas `cmd.exe`) :
 
 ```powershell
 cd <chemin-ancien>\gmao-supermarche-v2
-docker compose exec -T postgres pg_dump -U <POSTGRES_USER> <POSTGRES_DB> > backup-avant-deploy-$(Get-Date -Format yyyyMMdd-HHmm).sql
+Get-Content .env | Select-String POSTGRES
+```
+
+Note les valeurs de `POSTGRES_USER` et `POSTGRES_DB`, puis lance (remplace
+`TONUSER`/`TABASE` par ces valeurs, **sans** chevrons `< >` — `<`/`>` sont
+des opérateurs réservés en PowerShell, pas des marqueurs à conserver) :
+
+```powershell
+docker compose exec -T postgres pg_dump -U TONUSER TABASE > backup-avant-deploy-$(Get-Date -Format yyyyMMdd-HHmm).sql
 ```
 
 ## 2. Récupérer le code à jour
@@ -29,21 +37,30 @@ git pull
 
 ## 3. Vérifier que `docker-compose.yml` n'a pas changé côté ancien
 
+`diff` sous PowerShell est un alias vers `Compare-Object`, qui compare les
+**chemins tapés**, pas le **contenu** des fichiers — inutile ici. Utilise
+`fc` (comparateur de fichiers natif Windows) à la place :
+
 ```powershell
-diff <chemin-nouveau>\gmao-supermarche-v2\docker-compose.yml <chemin-ancien>\gmao-supermarche-v2\docker-compose.yml
+fc <chemin-nouveau>\gmao-supermarche-v2\docker-compose.yml <chemin-ancien>\gmao-supermarche-v2\docker-compose.yml
 ```
 
-Rien affiché → OK, continue. Une différence → s'arrêter et vérifier avant
-de continuer (ne pas écraser un réglage fait à la main sur le serveur).
+`FC: aucune différence rencontrée` → OK, continue. Une différence →
+s'arrêter et vérifier avant de continuer (ne pas écraser un réglage fait à
+la main sur le serveur).
 
 ## 4. Copier le code par-dessus l'ancien
 
+Ce serveur n'a pas `rsync` installé — utilise `robocopy` (natif Windows,
+équivalent) :
+
 ```powershell
-rsync -av --exclude='.env' --exclude='.git' --exclude='node_modules' `
-  --exclude='.next' --exclude='.turbo' --exclude='apps/api/dist' `
-  --exclude='data/gmao-seed.sql' `
-  <chemin-nouveau>/gmao-supermarche-v2/ <chemin-ancien>/gmao-supermarche-v2/
+robocopy "<chemin-nouveau>\gmao-supermarche-v2" "<chemin-ancien>\gmao-supermarche-v2" /E /XD node_modules .git .next .turbo dist /XF .env gmao-seed.sql
 ```
+
+`robocopy` affiche un tableau récapitulatif à la fin — normal, ce n'est
+pas une erreur (contrairement à la plupart des commandes, un code de
+sortie entre 0 et 7 veut dire "réussi").
 
 ## 5. Rebuild et redémarrage — uniquement `api`/`web`
 

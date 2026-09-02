@@ -400,8 +400,19 @@ l'étape 4 (`git pull` sur place suffit) et l'étape 5.
 Même pour une mise à jour "normale" — c'est gratuit, ne saute jamais cette
 étape :
 
+En PowerShell (pas `cmd.exe` — `$(Get-Date ...)` n'y est pas compris),
+trouve d'abord les vraies valeurs :
+
 ```powershell
-docker compose exec -T postgres pg_dump -U <POSTGRES_USER> <POSTGRES_DB> > backup-avant-deploy-$(Get-Date -Format yyyyMMdd-HHmm).sql
+Get-Content .env | Select-String POSTGRES
+```
+
+Puis lance (remplace `TONUSER`/`TABASE` par ces valeurs — **sans**
+chevrons `< >`, ce sont des opérateurs réservés en PowerShell, pas des
+marqueurs à garder) :
+
+```powershell
+docker compose exec -T postgres pg_dump -U TONUSER TABASE > backup-avant-deploy-$(Get-Date -Format yyyyMMdd-HHmm).sql
 ```
 
 ### 8.2. Récupérer le code à jour
@@ -418,24 +429,32 @@ git pull
 S'il a été retouché à la main sur le serveur (ports, volumes...), l'écraser
 ferait perdre ces réglages silencieusement :
 
+`diff` sous PowerShell est un alias vers `Compare-Object`, qui compare les
+**chemins tapés**, pas le **contenu** des fichiers — inutile ici. Utilise
+`fc` (comparateur de fichiers natif Windows, marche pareil en `cmd` et en
+PowerShell) :
+
 ```powershell
-diff <chemin-nouveau>\gmao-supermarche-v2\docker-compose.yml <chemin-ancien>\gmao-supermarche-v2\docker-compose.yml
+fc <chemin-nouveau>\gmao-supermarche-v2\docker-compose.yml <chemin-ancien>\gmao-supermarche-v2\docker-compose.yml
 ```
 
-Vide → rien à faire. Une différence → décider au cas par cas avant de
-continuer (au besoin, exclure ce fichier de la copie ci-dessous).
+`FC: aucune différence rencontrée` → rien à faire. Une différence →
+décider au cas par cas avant de continuer (au besoin, exclure ce fichier
+de la copie ci-dessous).
 
 ### 8.4. Copier le code par-dessus l'ancien déploiement
 
-Depuis "nouveau" vers "ancien", en excluant tout ce qui doit être préservé
-ou n'a rien à faire dans le transfert :
+Ce serveur n'a pas `rsync` — utilise `robocopy` (natif Windows,
+équivalent), depuis "nouveau" vers "ancien", en excluant tout ce qui doit
+être préservé ou n'a rien à faire dans le transfert :
 
 ```powershell
-rsync -av --exclude='.env' --exclude='.git' --exclude='node_modules' `
-  --exclude='.next' --exclude='.turbo' --exclude='apps/api/dist' `
-  --exclude='data/gmao-seed.sql' `
-  <chemin-nouveau>/gmao-supermarche-v2/ <chemin-ancien>/gmao-supermarche-v2/
+robocopy "<chemin-nouveau>\gmao-supermarche-v2" "<chemin-ancien>\gmao-supermarche-v2" /E /XD node_modules .git .next .turbo dist /XF .env gmao-seed.sql
 ```
+
+`robocopy` affiche un tableau récapitulatif à la fin — normal, ce n'est
+pas une erreur (contrairement à la plupart des commandes, un code de
+sortie entre 0 et 7 veut dire "réussi", pas seulement 0).
 
 - `.env` : les vrais secrets de prod, ne jamais écraser avec ceux de dev.
 - `data/gmao-seed.sql` : pas nécessaire pour une mise à jour de code, la
