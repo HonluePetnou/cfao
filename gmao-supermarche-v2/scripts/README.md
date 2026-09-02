@@ -10,6 +10,13 @@ procédure complète — ce fichier n'est qu'un index rapide.
 | [`restore-data.sh`](restore-data.sh) | Restaure `data/gmao-seed.sql` dans Postgres | Une fois, juste après le premier `docker compose up -d` (§6) — serveur Linux/macOS avec bash |
 | [`restore-data.ps1`](restore-data.ps1) | Équivalent strict de `restore-data.sh` | Même étape, serveur Windows sans bash |
 | [`repair-encoding.ps1`](repair-encoding.ps1) | Corrige les textes accentués corrompus en "?" par un ancien bug de `restore-data.ps1` | Ponctuel, seulement si la corruption d'encodage a eu lieu (voir §6bis de `DEPLOIEMENT.md`) |
+| [`purge-old-data.ps1`](purge-old-data.ps1) | Supprime Ticket/RapportJournalier/RondeJournaliere/PreventiveTask antérieurs à une date | Ponctuel, décision client de purger l'historique |
+| [`fix-type-travaux.ps1`](fix-type-travaux.ps1) | Corrige les tickets dont `typeTravaux` a le libellé humain au lieu de la clé attendue par les KPI | Ponctuel, une seule fois (bug corrigé côté formulaire depuis) |
+
+`fix-type-travaux.ps1` suit la même logique en plus simple : il délègue
+directement à
+[`../apps/api/prisma/fix-type-travaux.ts`](../apps/api/prisma/fix-type-travaux.ts)
+(pas de schéma temporaire ici, juste une correspondance libellé → clé).
 
 ## Un script sur deux dossiers : `repair-encoding.*`
 

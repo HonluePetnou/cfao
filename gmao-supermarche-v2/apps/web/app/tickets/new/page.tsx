@@ -13,7 +13,18 @@ const PRIORITIES = [
   { key: "HAUTE",    label: "Haute",    activeCls: "bg-orange border-orange text-white",             inactiveCls: "border-orange/50 text-orange hover:bg-orange-50",       icon: TrendingUp },
   { key: "CRITIQUE", label: "Critique", activeCls: "bg-red-500 border-red-500 text-white",           inactiveCls: "border-red-400 text-red-600 hover:bg-red-50",           icon: Zap },
 ];
-const TYPE_TRAVAUX = ["Maint. Corrective", "Maint. Préventive", "Maint. Améliorative", "Travaux neufs"];
+// Valeurs alignées sur celles envoyées par maintenancier/nouveau et
+// demandeur/nouveau (et attendues par le backend/les KPI du dashboard,
+// voir kpi.service.ts) - ce fichier envoyait avant le libellé humain
+// directement ("Maint. Corrective"...) au lieu de la clé ("MAINT_
+// CORRECTIVE"...), ce qui rendait ces tickets invisibles dans les stats
+// "Dépense par type de travaux" / "Maint. Corrective" / "Maint. Préventive".
+const TYPE_TRAVAUX = [
+  { key: "MAINT_CORRECTIVE", label: "Maint. Corrective" },
+  { key: "MAINT_PREVENTIVE", label: "Maint. Préventive" },
+  { key: "MAINT_AMELIORATIVE", label: "Maint. Améliorative" },
+  { key: "TRAVAUX_NEUFS", label: "Travaux neufs" },
+];
 
 export default function NewTicketPage() {
   const router = useRouter();
@@ -30,7 +41,7 @@ export default function NewTicketPage() {
   const [localisation, setLocalisation] = useState("");
   const [localisations, setLocalisations] = useState<any[]>([]);
   const [corpsEtat, setCorpsEtat] = useState("");
-  const [typeTravaux, setTypeTravaux] = useState("Maint. Corrective");
+  const [typeTravaux, setTypeTravaux] = useState("MAINT_CORRECTIVE");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -175,7 +186,7 @@ export default function NewTicketPage() {
               <div>
                 <label className="block text-xs font-semibold text-navy mb-1.5">Type de travaux <span className="text-orange">*</span></label>
                 <select value={typeTravaux} onChange={(e) => setTypeTravaux(e.target.value)} className="select">
-                  {TYPE_TRAVAUX.map((t) => <option key={t} value={t}>{t}</option>)}
+                  {TYPE_TRAVAUX.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
                 </select>
               </div>
               <div>

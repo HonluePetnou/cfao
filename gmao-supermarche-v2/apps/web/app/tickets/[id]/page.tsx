@@ -469,6 +469,7 @@ export default function TicketDetailPage() {
                   <select value={editData.typeTravaux} onChange={(e) => setEditData({...editData, typeTravaux: e.target.value})} className="select">
                     <option value="MAINT_CORRECTIVE">Maint. Corrective</option>
                     <option value="MAINT_PREVENTIVE">Maint. Préventive</option>
+                    <option value="MAINT_AMELIORATIVE">Maint. Améliorative</option>
                     <option value="TRAVAUX_NEUFS">Travaux Neufs</option>
                   </select>
                 </div>
